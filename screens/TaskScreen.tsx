@@ -45,9 +45,13 @@ export default function TaskScreen() {
   }, []);
 
   useEffect(() => {
-    AsyncStorage.setItem('xp', xp.toString());
-    AsyncStorage.setItem('level', level.toString());
+    const saveProgress = async () => {
+      await AsyncStorage.setItem('xp', xp.toString());
+      await AsyncStorage.setItem('level', level.toString());
+    };
+    saveProgress();
   }, [xp, level]);
+
 
   const loadTasks = async () => {
     const json = await AsyncStorage.getItem('tasks');
@@ -94,7 +98,6 @@ export default function TaskScreen() {
       const playerClass = await AsyncStorage.getItem('playerClass');
       const baseXp = 10;
       const newXp = xp + applyClassBonus(task, baseXp, playerClass);
-      console.log(`🎮 Class: ${playerClass} | +XP: ${newXp}`); // 🧪 Test log
       const xpNeeded = getXpForLevel(level);
       const today = new Date().toISOString().split('T')[0];
       const lastDate = await AsyncStorage.getItem('lastActiveDate');
@@ -131,8 +134,11 @@ export default function TaskScreen() {
         setTimeout(() => {
           setShowLottie(false);
           setXp(newXp - xpNeeded);
-          setLevel(level + 1);
-          Alert.alert('Level Up!', `You're now Level ${level + 1}! 🎉`);
+          setLevel((prevLevel) => {
+            const newLevel = prevLevel + 1;
+            Alert.alert('Level Up!', `You're now Level ${newLevel}! 🎉`);
+            return newLevel;
+          });
         }, 2000);
       } else {
         setXp(newXp);

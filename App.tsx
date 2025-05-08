@@ -12,9 +12,10 @@ export default function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="RoleShopScreen" component={RoleShopScreen} />
+
         <Stack.Screen name="ClassSelectScreen" component={ClassSelectScreen} />
         <Stack.Screen name="TaskScreen" component={TaskScreen} />
+        <Stack.Screen name="RoleShopScreen" component={RoleShopScreen} />
 
       </Stack.Navigator>
     </NavigationContainer>
