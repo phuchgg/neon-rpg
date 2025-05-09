@@ -5,20 +5,31 @@ import { StyleSheet } from 'react-native';
 import ClassSelectScreen from './screens/ClassSelectScreen';
 import TaskScreen from './screens/TaskScreen';
 import RoleShopScreen from './screens/RoleShopScreen';
+import BossQuestScreen from './screens/BossQuestScreen';
+import CreateBossScreen from './screens/CreateBossScreen';
+import BossDetailScreen from './screens/BossDetailScreen';
+import RewardStoreScreen from './screens/RewardStoreScreen';
+import { ThemeProvider } from './contexts/ThemeContext'; 
+import ThemeGalleryScreen from './screens/ThemeGalleryScreen';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-
-        <Stack.Screen name="ClassSelectScreen" component={ClassSelectScreen} />
-        <Stack.Screen name="TaskScreen" component={TaskScreen} />
-        <Stack.Screen name="RoleShopScreen" component={RoleShopScreen} />
-
-      </Stack.Navigator>
-    </NavigationContainer>
+    <ThemeProvider>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="ClassSelectScreen" component={ClassSelectScreen} />
+          <Stack.Screen name="TaskScreen" component={TaskScreen} />
+          <Stack.Screen name="BossDetailScreen" component={BossDetailScreen} />
+          <Stack.Screen name="RoleShopScreen" component={RoleShopScreen} />
+          <Stack.Screen name="BossQuestScreen" component={BossQuestScreen} />
+          <Stack.Screen name="CreateBossScreen" component={CreateBossScreen} />
+          <Stack.Screen name="RewardStoreScreen" component={RewardStoreScreen} />
+          <Stack.Screen name="ThemeGalleryScreen" component={ThemeGalleryScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </ThemeProvider>
   );
 }
 
