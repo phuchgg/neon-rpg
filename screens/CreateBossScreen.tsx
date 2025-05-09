@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,15 +6,18 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import uuid from 'react-native-uuid';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Picker } from '@react-native-picker/picker';
+import { Boss } from '../utils/type';
 
 type RootStackParamList = {
-    BossQuestScreen: { refreshed?: boolean };
-    CreateBossScreen: undefined;
-  };
+  BossQuestScreen: { refreshed?: boolean };
+  CreateBossScreen: undefined;
+};
 
 type CreateBossScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'CreateBossScreen'>;
@@ -23,6 +26,25 @@ type CreateBossScreenProps = {
 export default function CreateBossScreen({ navigation }: CreateBossScreenProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedTier, setSelectedTier] = useState<'mini' | 'elite' | 'mega'>('mini');
+  const [bosses, setBosses] = useState<Boss[]>([]);
+  const [selectedUnlockIds, setSelectedUnlockIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const loadBosses = async () => {
+      const stored = await AsyncStorage.getItem('bosses');
+      if (stored) setBosses(JSON.parse(stored));
+    };
+    loadBosses();
+  }, []);
+
+  const handleToggleUnlock = (bossId: string) => {
+    setSelectedUnlockIds((prev) =>
+      prev.includes(bossId)
+        ? prev.filter((id) => id !== bossId)
+        : [...prev, bossId]
+    );
+  };
 
   const handleCreate = async () => {
     if (title.trim() === '') {
@@ -30,13 +52,15 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
       return;
     }
 
-    const newBoss = {
+    const newBoss: Boss = {
       id: uuid.v4().toString(),
       title: title.trim(),
       description: description.trim(),
       progress: 0,
       isDefeated: false,
       createdAt: Date.now(),
+      tier: selectedTier,
+      unlockAfter: selectedUnlockIds,
     };
 
     const stored = await AsyncStorage.getItem('bosses');
@@ -50,28 +74,53 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <Text style={styles.header}>🎮 New Boss Quest</Text>
 
       <TextInput
         style={styles.input}
         placeholder="Boss Title"
+        placeholderTextColor="#777"
         value={title}
         onChangeText={setTitle}
       />
+
       <TextInput
         style={[styles.input, styles.textArea]}
         placeholder="Description (optional)"
+        placeholderTextColor="#777"
         value={description}
         onChangeText={setDescription}
         multiline
         numberOfLines={4}
       />
 
+      <Text style={styles.label}>Select Boss Tier:</Text>
+      <Picker
+        selectedValue={selectedTier}
+        onValueChange={(value) => setSelectedTier(value)}
+        style={styles.picker}
+      >
+        <Picker.Item label="Mini Boss" value="mini" />
+        <Picker.Item label="Elite Boss" value="elite" />
+        <Picker.Item label="Mega Boss" value="mega" />
+      </Picker>
+
+      <Text style={styles.label}>Unlocks After:</Text>
+      {bosses.map((b) => (
+        <TouchableOpacity
+          key={b.id}
+          style={[styles.unlockItem, selectedUnlockIds.includes(b.id) && styles.unlockItemSelected]}
+          onPress={() => handleToggleUnlock(b.id)}
+        >
+          <Text style={{ color: '#fff' }}>{`${selectedUnlockIds.includes(b.id) ? '✅' : '⬜️'} ${b.title ?? 'Untitled'}`}</Text>
+        </TouchableOpacity>
+      ))}
+
       <TouchableOpacity style={styles.button} onPress={handleCreate}>
         <Text style={styles.buttonText}>Launch Quest</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -99,6 +148,25 @@ const styles = StyleSheet.create({
   textArea: {
     height: 100,
     textAlignVertical: 'top',
+  },
+  label: {
+    color: '#ccc',
+    marginBottom: 6,
+    fontWeight: 'bold',
+  },
+  picker: {
+    backgroundColor: '#1a1a2e',
+    color: '#fff',
+    marginBottom: 16,
+  },
+  unlockItem: {
+    padding: 10,
+    backgroundColor: '#1f1f2e',
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  unlockItemSelected: {
+    backgroundColor: '#00f9ff22',
   },
   button: {
     backgroundColor: '#00f9ff33',

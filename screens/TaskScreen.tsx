@@ -26,7 +26,7 @@ export default function TaskScreen() {
   const [streak, setStreak] = useState(0);
   const [showStreakBonus, setShowStreakBonus] = useState(false);
   const [bosses, setBosses] = useState<Boss[]>([]);
-  const [selectedBossId, setSelectedBossId] = useState<string | null>(null);
+  const [selectedBossId, setSelectedBossId] = useState<string>(''); // not null
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [showBossVictory, setShowBossVictory] = useState(false);
   const { theme } = useTheme();
@@ -342,7 +342,7 @@ const newXp = xp + bonusAmount;
         onValueChange={(value) => setSelectedBossId(value)}
         style={{ backgroundColor: '#1a1a2e', color: '#fff', marginBottom: 12 }}
       >
-        <Picker.Item label="🔓 No Boss" value={null} />
+        <Picker.Item label="🔓 No Boss" value=""/>
 
         {bosses
           .filter((boss) => !boss.isDefeated)

@@ -61,7 +61,7 @@ export default function BossDetailScreen() {
 
       <View style={styles.progressContainer}>
         <Text style={styles.progressLabel}>
-          Progress: {boss.progress}% {boss.isDefeated && '✅'}
+        {`Progress: ${boss.progress}% ${boss.isDefeated ? '✅' : ''}`}
         </Text>
         <View style={styles.progressBarOuter}>
           <View style={[styles.progressBarInner, { width: `${boss.progress}%` }]} />

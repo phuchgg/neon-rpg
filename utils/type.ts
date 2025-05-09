@@ -16,4 +16,6 @@ export interface Boss {
     progress: number;
     isDefeated: boolean;
     createdAt: number;
+    tier: 'mini' | 'elite' | 'mega';  // ✅ NEW
+    unlockAfter?: string[];           // ✅ NEW: list of bossIds to unlock this one
   }

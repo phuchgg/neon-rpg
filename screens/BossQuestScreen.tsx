@@ -31,6 +31,7 @@ type Boss = {
     progress: number; // 0–100
     isDefeated: boolean;
     createdAt: number;
+    tier: 'mini' | 'elite' | 'mega'; // ✅ NEW
 };
 
 export default function BossQuestScreen() {
@@ -64,6 +65,7 @@ export default function BossQuestScreen() {
                     progress: 30,
                     isDefeated: false,
                     createdAt: Date.now(),
+                    tier: 'mini'
                 },
                 {
                     id: 'boss2',
@@ -72,6 +74,7 @@ export default function BossQuestScreen() {
                     progress: 100,
                     isDefeated: true,
                     createdAt: Date.now(),
+                    tier: 'mega'
                 },
             ];
             await AsyncStorage.setItem('bosses', JSON.stringify(starterBosses));
@@ -82,6 +85,11 @@ export default function BossQuestScreen() {
     const renderBoss = ({ item }: { item: Boss }) => (
         <View style={[styles.card, item.isDefeated && styles.defeated]}>
             <Text style={styles.title}>{item.title}</Text>
+            <Text style={styles.tierIcon}>
+  {item.tier === 'mini' && '🧩'}
+  {item.tier === 'elite' && '🔥'}
+  {item.tier === 'mega' && '👑'}
+</Text>
             <Text style={styles.desc}>{item.description}</Text>
             <Progress.Bar
                 progress={Math.min(1, item.progress / 100)}
@@ -92,7 +100,7 @@ export default function BossQuestScreen() {
                 unfilledColor="#1a1a1a"
             />
             <Text style={styles.progressText}>
-                {item.progress}% {item.isDefeated ? '✅ Defeated' : ''}
+            {`${item.progress}% ${item.isDefeated ? '✅ Defeated' : ''}`}
             </Text>
         </View>
     );
@@ -164,4 +172,8 @@ const styles = StyleSheet.create({
         color: '#00f9ff',
         fontWeight: '600',
     },
+    tierIcon: {
+        fontSize: 18,
+        marginBottom: 6,
+      },      
 });
