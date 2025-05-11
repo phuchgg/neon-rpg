@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import uuid from 'react-native-uuid';
 import * as Progress from 'react-native-progress';
 import LottieView from 'lottie-react-native';
-import { Task, Boss } from '../utils/type';
+import { Task, Boss, Quest } from '../utils/type';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,10 +12,39 @@ import { useTheme } from '../contexts/ThemeContext';
 import { themes } from '../utils/themes';
 import { RootStackParamList } from '../utils/navigation';
 import { useMemo, useRef } from 'react';
+import { CosmeticManager } from '../utils/CosmeticManager';
 
 const getXpForLevel = (level: number): number => {
   return 100 + (level - 1) * 20; // Level 1 = 100, Level 2 = 120, etc.
 };
+
+export async function updateQuestProgress(type: 'task' | 'boss') {
+  const json = await AsyncStorage.getItem('quests');
+  if (!json) return;
+
+  let quests: Quest[] = JSON.parse(json);
+  let updated = false;
+
+  quests = quests.map((quest) => {
+    if (quest.type !== type || quest.isComplete) return quest;
+
+    const current = quest.condition.current + 1;
+    const progress = Math.min((current / quest.condition.target) * 100, 100);
+    const isComplete = current >= quest.condition.target;
+
+    return {
+      ...quest,
+      condition: { ...quest.condition, current },
+      progress, // this line is critical
+      isComplete,
+    };
+
+  });
+
+  if (updated) {
+    await AsyncStorage.setItem('quests', JSON.stringify(quests));
+  }
+}
 
 export default function TaskScreen() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -34,6 +63,8 @@ export default function TaskScreen() {
   const [showXpLabel, setShowXpLabel] = useState(false);
   const xpAnim = useRef(new Animated.Value(0)).current;
   const [xpGainAmount, setXpGainAmount] = useState(0); // dynamic amount
+  const [equippedBadge, setEquippedBadge] = useState<string | null>(null);
+
 
 
   const dynamicStyles = {
@@ -85,6 +116,15 @@ export default function TaskScreen() {
   }, []);
 
   useEffect(() => {
+    const loadCosmetics = async () => {
+      const cosmetics = await CosmeticManager.getEquippedCosmetics();
+      if (cosmetics.badge) setEquippedBadge(cosmetics.badge);
+      console.log('🎖️ Badge Loaded:', cosmetics.badge);
+    };
+    loadCosmetics();
+  }, []);
+
+  useEffect(() => {
     const saveProgress = async () => {
       await AsyncStorage.setItem('xp', xp.toString());
       await AsyncStorage.setItem('level', level.toString());
@@ -128,47 +168,49 @@ export default function TaskScreen() {
 
   const [xpAnimationRunning, setXpAnimationRunning] = useState(false);
 
-const triggerXpAnimation = (amount: number) => {
-  if (xpAnimationRunning) return;
+  const triggerXpAnimation = (amount: number) => {
+    if (xpAnimationRunning) return;
 
-  setXpGainAmount(amount);
-  setShowXpLabel(true);
-  setXpAnimationRunning(true);
-  xpAnim.setValue(0);
+    setXpGainAmount(amount);
+    setShowXpLabel(true);
+    setXpAnimationRunning(true);
+    xpAnim.setValue(0);
 
-  Animated.timing(xpAnim, {
-    toValue: 1,
-    duration: 800,
-    useNativeDriver: true,
-  }).start(() => {
-    setShowXpLabel(false);
-    setXpAnimationRunning(false);
-  });
-};
-  
+    Animated.timing(xpAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowXpLabel(false);
+      setXpAnimationRunning(false);
+    });
+  };
+
 
   const updateBossProgress = async (bossId: string, increment: number = 10) => {
     const json = await AsyncStorage.getItem('bosses');
     if (!json) return;
 
     const bosses: Boss[] = JSON.parse(json);
-    const updated = bosses.map((b) => {
+    const updated = await Promise.all(bosses.map(async (b) => {
       if (b.id === bossId) {
         const newProgress = Math.min(100, b.progress + increment);
         const defeated = newProgress >= 100;
+
         if (defeated && !b.isDefeated) {
           setShowBossVictory(true);
+          await updateQuestProgress('boss');
           setTimeout(() => setShowBossVictory(false), 1000);
 
-          // Optional: XP boost reward
           setXp((prev) => prev + 50);
-
           Alert.alert('👑 Boss Defeated!', `"${b.title}" has been conquered! +50 XP`);
         }
+
         return { ...b, progress: newProgress, isDefeated: defeated };
       }
+
       return b;
-    });
+    }));
 
     await AsyncStorage.setItem('bosses', JSON.stringify(updated));
   };
@@ -187,13 +229,14 @@ const triggerXpAnimation = (amount: number) => {
     if (!task.completed && updatedTask.completed) {
       const playerClass = await AsyncStorage.getItem('playerClass');
       const baseXp = 10;
-const bonusAmount = applyClassBonus(task, baseXp, playerClass);
-const newXp = xp + bonusAmount;
+      const bonusAmount = applyClassBonus(task, baseXp, playerClass);
+      const newXp = xp + bonusAmount;
       const xpNeeded = getXpForLevel(level);
       const today = new Date().toISOString().split('T')[0];
       const lastDate = await AsyncStorage.getItem('lastActiveDate');
       const storedStreak = await AsyncStorage.getItem('streakCount');
       const streakValue = storedStreak ? parseInt(storedStreak) : 0;
+      await updateQuestProgress('task');
 
       // Check if streak updated today
       if (lastDate !== today) {
@@ -250,37 +293,47 @@ const newXp = xp + bonusAmount;
   return (
 
     <View style={[styles.container]}>
+
+      {equippedBadge && (
+        <View style={{
+          position: 'absolute', top: 20, right: 20, backgroundColor: '#1a1a2e', padding: 8,
+          borderRadius: 30, borderColor: '#00f9ff', borderWidth: 1, zIndex: 10
+        }}>
+          <Text style={{ fontSize: 20, color: '#fff' }}>{equippedBadge === 'badge_glitch' ? '🎖️' : '🏅'}</Text>
+        </View>
+      )}
+
       {showXpLabel && (
-      <Animated.Text
-        style={[
-          {
-            position: 'absolute',
-            top: 90,
-            alignSelf: 'center',
-            fontSize: 20,
-            fontWeight: 'bold',
-            color: theme.accent,
-            zIndex: 10,
-          },
-          {
-            opacity: xpAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [1, 0],
-            }),
-            transform: [
-              {
-                translateY: xpAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -40],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        +{xpGainAmount} XP
-      </Animated.Text>
-    )}
+        <Animated.Text
+          style={[
+            {
+              position: 'absolute',
+              top: 90,
+              alignSelf: 'center',
+              fontSize: 20,
+              fontWeight: 'bold',
+              color: theme.accent,
+              zIndex: 10,
+            },
+            {
+              opacity: xpAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, 0],
+              }),
+              transform: [
+                {
+                  translateY: xpAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -40],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          +{xpGainAmount} XP
+        </Animated.Text>
+      )}
       <Text style={[styles.title]}>🎯 Daily Missions</Text>
       <Text style={[styles.streakText]}>🔥 Streak: {streak} days</Text>
       <View style={styles.xpContainer}>
@@ -342,7 +395,7 @@ const newXp = xp + bonusAmount;
         onValueChange={(value) => setSelectedBossId(value)}
         style={{ backgroundColor: '#1a1a2e', color: '#fff', marginBottom: 12 }}
       >
-        <Picker.Item label="🔓 No Boss" value=""/>
+        <Picker.Item label="🔓 No Boss" value="" />
 
         {bosses
           .filter((boss) => !boss.isDefeated)
@@ -472,4 +525,24 @@ const makeStyles = (theme: typeof themes.default) =>
       marginTop: 4,
       fontStyle: 'italic',
     },
+    badgeContainer: {
+      position: 'absolute',
+      top: 20,
+      right: 20,
+      backgroundColor: '#1a1a2e',
+      padding: 8,
+      borderRadius: 30,
+      borderColor: '#00f9ff',
+      borderWidth: 1,
+      shadowColor: '#00f9ff',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.8,
+      shadowRadius: 6,
+    },
+
+    badgeText: {
+      fontSize: 20,
+      color: '#fff',
+    },
+
   });

@@ -18,4 +18,21 @@ export interface Boss {
     createdAt: number;
     tier: 'mini' | 'elite' | 'mega';  // ✅ NEW
     unlockAfter?: string[];           // ✅ NEW: list of bossIds to unlock this one
+    connectsTo?: string[];
+    classRequired?: 'ghostrunner' | 'netcrasher' | 'synthmancer';
   }
+
+export type Quest = {
+  id: string;
+  title: string;
+  description: string;
+  progress: number; // 0–100
+  isComplete: boolean;
+  type: 'task' | 'boss';
+  condition: {
+    target: number; // e.g. 5 tasks or 3 bosses
+    current: number;
+  };
+  rewardXp: number;
+};
+

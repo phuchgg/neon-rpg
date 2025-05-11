@@ -2,36 +2,31 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../utils/navigation';
 
-type RootStackParamList = {
-    RoleShopScreen: undefined;
-    TaskScreen: undefined;
-    ClassSelectScreen: undefined;
-  };
-  
-  type RoleShopScreenProps = {
-    navigation: NativeStackNavigationProp<RootStackParamList, 'RoleShopScreen'>;
-  };
+const CLASS_SWITCH_COST = 50;
 
 const classOptions = [
   {
     id: 'ghostrunner',
     name: '🏃 Ghostrunner',
-    bonus: '+20% XP for fast tasks',
+    bonus: '+20% XP for fast tasks (≤10 chars)',
   },
   {
     id: 'netcrasher',
     name: '💻 Netcrasher',
-    bonus: '+XP for code/debug/study tasks',
+    bonus: '+5 XP for code/debug/study tasks',
   },
   {
     id: 'synthmancer',
     name: '🔮 Synthmancer',
-    bonus: '+2 XP per task',
+    bonus: '+2 XP per task (flat bonus)',
   },
 ];
 
-const CLASS_SWITCH_COST = 50;
+type RoleShopScreenProps = {
+  navigation: NativeStackNavigationProp<RootStackParamList, 'RoleShopScreen'>;
+};
 
 export default function RoleShopScreen({ navigation }: RoleShopScreenProps) {
   const [currentClass, setCurrentClass] = useState('');

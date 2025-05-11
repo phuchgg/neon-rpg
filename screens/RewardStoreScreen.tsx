@@ -13,18 +13,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../utils/navigation';
 import { useTheme } from '../contexts/ThemeContext';
 import { themes } from '../utils/themes';
-
-type RewardStoreNav = NativeStackNavigationProp<RootStackParamList, 'RewardStoreScreen'>;
-
-const rewards = [
-  { id: 'neon_theme', name: '🟢 Neon Green Theme', cost: 100 },
-  { id: 'fire_red', name: '🔥 Fire Red Theme', cost: 120 },
-  { id: 'nightwave', name: '🌌 Nightwave Theme', cost: 130 },
-  { id: 'ice_pulse', name: '❄️ Ice Pulse Theme', cost: 140 },
-  { id: 'synthcore', name: '💜 Synthcore Theme', cost: 160 },
-  { id: 'synth_hood', name: '🧢 Synthmancer Hood', cost: 150 },
-  { id: 'hud_nightwave', name: '🌌 Nightwave HUD', cost: 200 },
-];
+import { rewards } from '../utils/rewards';
+import { CosmeticManager } from '../utils/CosmeticManager';
 
 const themePreviewMap: Record<string, { colors: string[] }> = {
   neon_theme: { colors: ['#001b0f', '#00ffcc', '#39ff14'] },
@@ -54,8 +44,8 @@ const ThemePreviewBar = ({ colors }: { colors: string[] }) => (
 export default function RewardStoreScreen() {
   const [xp, setXp] = useState(0);
   const [unlocked, setUnlocked] = useState<string[]>([]);
-  const navigation = useNavigation<RewardStoreNav>();
-  const { setThemeByKey, themeKey } = useTheme(); // ✅ Pull from context only
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'RewardStoreScreen'>>();
+  const { setThemeByKey, themeKey } = useTheme();
 
   useEffect(() => {
     const load = async () => {
@@ -63,6 +53,17 @@ export default function RewardStoreScreen() {
       const savedRewards = await AsyncStorage.getItem('unlockedRewards');
       if (savedXp) setXp(parseInt(savedXp));
       if (savedRewards) setUnlocked(JSON.parse(savedRewards));
+
+      const streak = parseInt(await AsyncStorage.getItem('questStreak') ?? '0');
+      const updated = [...(savedRewards ? JSON.parse(savedRewards) : [])];
+
+      if (streak >= 7 && !updated.includes('badge_glitch')) {
+        updated.push('badge_glitch');
+        await AsyncStorage.setItem('unlockedRewards', JSON.stringify(updated));
+        Alert.alert('🎖️ Badge Unlocked!', 'You earned the Glitch Badge for your 7-day quest streak!');
+      }
+
+      setUnlocked(updated);
     };
     load();
   }, []);
@@ -72,19 +73,12 @@ export default function RewardStoreScreen() {
       'Unlock Reward?',
       `This will cost ${cost} XP. Are you sure?`,
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Unlock',
-          onPress: () => handleUnlock(rewardId, cost),
-        },
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Unlock', onPress: () => handleUnlock(rewardId, cost) },
       ],
       { cancelable: true }
     );
   };
-
 
   const handleUnlock = async (rewardId: string, cost: number) => {
     if (unlocked.includes(rewardId)) {
@@ -97,7 +91,6 @@ export default function RewardStoreScreen() {
       Alert.alert('Not Enough XP', `You need ${xpShort} more XP to unlock this reward.`);
       return;
     }
-    
 
     const updatedRewards = [...unlocked, rewardId];
     const newXp = xp - cost;
@@ -108,7 +101,14 @@ export default function RewardStoreScreen() {
     await AsyncStorage.setItem('unlockedRewards', JSON.stringify(updatedRewards));
     await AsyncStorage.setItem('xp', newXp.toString());
 
-    // Optional auto-equip if it's the first unlock
+    const reward = rewards.find((r) => r.id === rewardId);
+    if (reward?.type === 'badge') {
+      await CosmeticManager.setEquippedBadge(rewardId);
+    }
+    if (reward?.type === 'hud') {
+      await CosmeticManager.setEquippedHud(rewardId);
+    }
+
     if (rewardId in themes) {
       await setThemeByKey(rewardId as keyof typeof themes);
     }
@@ -123,15 +123,9 @@ export default function RewardStoreScreen() {
 
   const renderItem = ({ item }: { item: typeof rewards[0] }) => {
     const isUnlocked = unlocked.includes(item.id);
-    const isTheme = item.id in themes;
+    const isTheme = item.type === 'theme';
     const isActiveTheme = item.id === themeKey;
-    console.log({
-      id: item.id,
-      isTheme,
-      isUnlocked,
-      isActiveTheme,
-      themeKey,
-    });
+
     return (
       <View style={[styles.card, isUnlocked && styles.cardUnlocked]}>
         <Text style={styles.rewardName}>{item.name}</Text>
@@ -149,7 +143,6 @@ export default function RewardStoreScreen() {
             <Text style={styles.buttonText}>Unlock</Text>
           </TouchableOpacity>
         )}
-
 
         {isUnlocked && isTheme && (
           isActiveTheme ? (
@@ -182,7 +175,6 @@ export default function RewardStoreScreen() {
         </Text>
       </TouchableOpacity>
     </View>
-
   );
 }
 
