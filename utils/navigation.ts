@@ -6,5 +6,10 @@ export type RootStackParamList = {
     RoleShopScreen: undefined;
     ClassSelectScreen: undefined;
     CreateBossScreen: undefined;
+    BossMapScreen: undefined;
+    ClassQuestScreen: undefined;
+    QuestHistoryScreen: undefined;
+    QuestJournalScreen: undefined;
+    BossQuestScreen: {refreshed?: boolean};
   };
   

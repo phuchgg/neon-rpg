@@ -113,7 +113,7 @@ export default function RewardStoreScreen() {
       await setThemeByKey(rewardId as keyof typeof themes);
     }
 
-    Alert.alert('🎁 Unlocked!', `You’ve unlocked: ${rewardId}`);
+    Alert.alert('🎁 Unlocked!', `You've unlocked: ${rewardId}`);
   };
 
   const handleEquip = async (rewardId: string) => {

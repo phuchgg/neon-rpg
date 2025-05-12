@@ -12,7 +12,7 @@ const classes = [
   {
     id: 'netcrasher',
     name: '💻 Netcrasher',
-    lore: 'There’s no task too tangled for a line of truth.',
+    lore: 'There is no task too tangled for a line of truth.',
     bonus: '+XP for tasks like “code”, “debug”, “fix”, “study”',
   },
   {
@@ -24,7 +24,7 @@ const classes = [
   {
     id: 'edgewalker',
     name: '🔥 Edgewalker (Locked)',
-    lore: 'They don’t chase XP. They hunt legacy.',
+    lore: 'They do not chase XP. They hunt legacy.',
     bonus: '+XP for "boss", "project", "long" tasks',
     locked: true,
   },

@@ -13,11 +13,8 @@ import uuid from 'react-native-uuid';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Picker } from '@react-native-picker/picker';
 import { Boss } from '../utils/type';
+import { RootStackParamList } from '../utils/navigation';
 
-type RootStackParamList = {
-  BossQuestScreen: { refreshed?: boolean };
-  CreateBossScreen: undefined;
-};
 
 type CreateBossScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'CreateBossScreen'>;
@@ -55,13 +52,18 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
     const newBoss: Boss = {
       id: uuid.v4().toString(),
       title: title.trim(),
-      description: description.trim(),
+      description: description.trim() || 'Defeat me!',
       progress: 0,
       isDefeated: false,
       createdAt: Date.now(),
+      totalXp: 100,
+      xpRemaining: 100,
       tier: selectedTier,
       unlockAfter: selectedUnlockIds,
     };
+    
+    
+    
 
     const stored = await AsyncStorage.getItem('bosses');
     const bosses = stored ? JSON.parse(stored) : [];

@@ -167,7 +167,6 @@ export default function ThemeGalleryScreen() {
                             🔓 Unlock & Equip
                         </Text>
                     </TouchableOpacity>
-
                 )}
 
 

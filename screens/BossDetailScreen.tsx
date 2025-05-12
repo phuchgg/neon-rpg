@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback  } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,9 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { Task, Boss } from '../utils/type';
+import { RootStackParamList } from '../utils/navigation';
+import { useFocusEffect } from '@react-navigation/native';
 
-type RootStackParamList = {
-  BossDetailScreen: { bossId: string };
-};
 
 type BossDetailRouteProp = RouteProp<RootStackParamList, 'BossDetailScreen'>;
 
@@ -61,10 +60,10 @@ export default function BossDetailScreen() {
 
       <View style={styles.progressContainer}>
         <Text style={styles.progressLabel}>
-        {`Progress: ${boss.progress}% ${boss.isDefeated ? '✅' : ''}`}
+        {`Progress: ${boss.progress ?? 0}% ${boss.isDefeated ? '✅' : ''}`}
         </Text>
         <View style={styles.progressBarOuter}>
-          <View style={[styles.progressBarInner, { width: `${boss.progress}%` }]} />
+        <View style={[styles.progressBarInner, { width: `${boss.progress ?? 0}%` }]} />
         </View>
       </View>
 

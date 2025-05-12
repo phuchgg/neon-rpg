@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet, Alert, Animated } from 'react-native';
+import React, { useState, useEffect, useCallback  } from 'react';
+import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet, Alert, Animated,  } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import uuid from 'react-native-uuid';
 import * as Progress from 'react-native-progress';
@@ -13,6 +13,9 @@ import { themes } from '../utils/themes';
 import { RootStackParamList } from '../utils/navigation';
 import { useMemo, useRef } from 'react';
 import { CosmeticManager } from '../utils/CosmeticManager';
+import QuestTracker from '../contexts/QuestTracker';
+import { tierDamagePercentMap } from '../utils/bossConstants';
+import { useFocusEffect } from '@react-navigation/native';
 
 const getXpForLevel = (level: number): number => {
   return 100 + (level - 1) * 20; // Level 1 = 100, Level 2 = 120, etc.
@@ -31,12 +34,13 @@ export async function updateQuestProgress(type: 'task' | 'boss') {
     const current = quest.condition.current + 1;
     const progress = Math.min((current / quest.condition.target) * 100, 100);
     const isComplete = current >= quest.condition.target;
-
+    updated = true;
     return {
       ...quest,
       condition: { ...quest.condition, current },
       progress, // this line is critical
       isComplete,
+
     };
 
   });
@@ -108,20 +112,25 @@ export default function TaskScreen() {
     if (json) setBosses(JSON.parse(json));
   };
 
-  useEffect(() => {
-    loadBosses();
-    loadTasks();
-    loadProgress();
-    console.log('🌈 Current Theme:', theme);
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadBosses();
+      loadTasks();
+      loadProgress();
+      console.log('🌈 Refreshed on Focus');
+    }, [])
+  );
+  
 
   useEffect(() => {
     const loadCosmetics = async () => {
       const cosmetics = await CosmeticManager.getEquippedCosmetics();
       if (cosmetics.badge) setEquippedBadge(cosmetics.badge);
       console.log('🎖️ Badge Loaded:', cosmetics.badge);
+
     };
     loadCosmetics();
+
   }, []);
 
   useEffect(() => {
@@ -194,8 +203,13 @@ export default function TaskScreen() {
     const bosses: Boss[] = JSON.parse(json);
     const updated = await Promise.all(bosses.map(async (b) => {
       if (b.id === bossId) {
-        const newProgress = Math.min(100, b.progress + increment);
-        const defeated = newProgress >= 100;
+        const damagePercent = tierDamagePercentMap[b.tier] || 1; // ✅ Boss takes 1% damage per task completion
+
+        const damage = Math.ceil(b.totalXp * (damagePercent / 100));
+        const newXpRemaining = Math.max(0, b.xpRemaining - damage);
+        const newProgress = Math.min(100, ((b.totalXp - newXpRemaining) / b.totalXp) * 100);
+        const defeated = newXpRemaining <= 0;
+        
 
         if (defeated && !b.isDefeated) {
           setShowBossVictory(true);
@@ -206,7 +220,8 @@ export default function TaskScreen() {
           Alert.alert('👑 Boss Defeated!', `"${b.title}" has been conquered! +50 XP`);
         }
 
-        return { ...b, progress: newProgress, isDefeated: defeated };
+        return { ...b, xpRemaining: newXpRemaining, progress: newProgress, isDefeated: defeated };
+
       }
 
       return b;
@@ -246,9 +261,8 @@ export default function TaskScreen() {
         if (lastDate === yesterday) {
           updatedStreak = streakValue + 1;
         }
-
-        await AsyncStorage.setItem('streakCount', updatedStreak.toString());
         setStreak(updatedStreak);
+        await AsyncStorage.setItem('streakCount', updatedStreak.toString());
         await AsyncStorage.setItem('lastActiveDate', today);
 
         // 🎁 Streak Rewards:
@@ -378,6 +392,17 @@ export default function TaskScreen() {
           style={styles.lottie}
         />
       )}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+        <TouchableOpacity onPress={() => navigation.navigate('BossMapScreen')} style={styles.navButton}>
+          <Text style={styles.navButtonText}>🗺️ Boss Map</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('RewardStoreScreen')} style={styles.navButton}>
+          <Text style={styles.navButtonText}>🏪 Reward Store</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('RoleShopScreen')} style={styles.navButton}>
+          <Text style={styles.navButtonText}>🧑‍💻 Role Shop</Text>
+        </TouchableOpacity>
+      </View>
 
 
       <View style={styles.inputContainer}>
@@ -387,8 +412,9 @@ export default function TaskScreen() {
           value={newTask}
           onChangeText={setNewTask}
         />
-        <Button title="Add" onPress={addTask} />
-
+        <TouchableOpacity onPress={addTask} style={styles.addButton}>
+          <Text style={styles.addButtonText}>Add Task</Text>
+        </TouchableOpacity>
       </View>
       <Picker
         selectedValue={selectedBossId}
@@ -438,6 +464,7 @@ export default function TaskScreen() {
           </TouchableOpacity>
         )}
       />
+      <QuestTracker />
     </View>
   );
 }
@@ -543,6 +570,31 @@ const makeStyles = (theme: typeof themes.default) =>
     badgeText: {
       fontSize: 20,
       color: '#fff',
+    },
+    addButton: {
+      backgroundColor: '#00f9ff33',
+      padding: 10,
+      borderRadius: 8,
+      marginLeft: 8,
+      justifyContent: 'center',
+    },
+    addButtonText: {
+      color: '#00f9ff',
+      fontWeight: '600',
+    },
+    navButton: {
+      backgroundColor: '#1a1a2e',
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: '#00f9ff',
+      marginHorizontal: 4,
+    },
+    navButtonText: {
+      color: '#00f9ff',
+      fontWeight: 'bold',
+      fontSize: 12,
     },
 
   });

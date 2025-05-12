@@ -10,29 +10,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Progress from 'react-native-progress';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Boss } from '../utils/type'
+import { RootStackParamList } from '../utils/navigation';
 
-type RootStackParamList = {
-    BossQuestScreen: undefined;
-    CreateBossScreen: undefined;
-};
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'BossQuestScreen'>;
 
 type BossQuestRoute = {
     params?: {
-      refreshed?: boolean;
+        refreshed?: boolean;
     };
-  };
-
-type Boss = {
-    id: string;
-    title: string;
-    description: string;
-    progress: number; // 0–100
-    isDefeated: boolean;
-    createdAt: number;
-    tier: 'mini' | 'elite' | 'mega'; // ✅ NEW
 };
+
 
 export default function BossQuestScreen() {
     const [bosses, setBosses] = useState<Boss[]>([]);
@@ -44,52 +33,77 @@ export default function BossQuestScreen() {
 
     useFocusEffect(
         React.useCallback(() => {
-          const shouldRefresh = route?.params?.refreshed;
-          if (shouldRefresh) {
-            loadBosses();
-          }
+            const shouldRefresh = route?.params?.refreshed;
+            if (shouldRefresh) {
+                loadBosses();
+            }
         }, [route])
-      );
+    );
 
     const loadBosses = async () => {
         const json = await AsyncStorage.getItem('bosses');
         if (json) {
-            setBosses(JSON.parse(json));
+            let loadedBosses: Boss[] = JSON.parse(json);
+
+            loadedBosses = loadedBosses.map((boss) => {
+                const defaultTotalXp = boss.tier === 'mega' ? 10000 : boss.tier === 'elite' ? 6000 : 3000;
+
+                const totalXp = boss.totalXp ?? defaultTotalXp;
+                const xpRemaining = boss.xpRemaining ?? totalXp;
+                const progress = Math.min(100, ((totalXp - xpRemaining) / totalXp) * 100);
+
+                return {
+                    ...boss,
+                    totalXp,
+                    xpRemaining,
+                    progress,  // ✅ calculate from current values
+                };
+            });
+
+            await AsyncStorage.setItem('bosses', JSON.stringify(loadedBosses));
+            setBosses(loadedBosses);
         } else {
-            // 💾 Dummy starter data (safe to delete later)
+            // Dummy data (include totalXp & xpRemaining)
             const starterBosses: Boss[] = [
                 {
                     id: 'boss1',
                     title: '🚗 Get Driver License',
                     description: 'Complete theory + practical lessons.',
-                    progress: 30,
                     isDefeated: false,
                     createdAt: Date.now(),
-                    tier: 'mini'
+                    tier: 'mini',
+                    totalXp: 3000,
+                    xpRemaining: 2100,  // 30% progress
+                    progress: ((3000 - 2100) / 3000) * 100,
                 },
                 {
                     id: 'boss2',
                     title: '🌐 Launch Portfolio Website',
                     description: 'Finish design + deploy to GitHub Pages.',
-                    progress: 100,
                     isDefeated: true,
                     createdAt: Date.now(),
-                    tier: 'mega'
+                    tier: 'mega',
+                    totalXp: 5000,
+                    xpRemaining: 0,
+                    progress: 100,
                 },
             ];
+
             await AsyncStorage.setItem('bosses', JSON.stringify(starterBosses));
             setBosses(starterBosses);
         }
     };
 
+
+
     const renderBoss = ({ item }: { item: Boss }) => (
         <View style={[styles.card, item.isDefeated && styles.defeated]}>
             <Text style={styles.title}>{item.title}</Text>
             <Text style={styles.tierIcon}>
-  {item.tier === 'mini' && '🧩'}
-  {item.tier === 'elite' && '🔥'}
-  {item.tier === 'mega' && '👑'}
-</Text>
+                {item.tier === 'mini' && '🧩'}
+                {item.tier === 'elite' && '🔥'}
+                {item.tier === 'mega' && '👑'}
+            </Text>
             <Text style={styles.desc}>{item.description}</Text>
             <Progress.Bar
                 progress={Math.min(1, item.progress / 100)}
@@ -100,11 +114,12 @@ export default function BossQuestScreen() {
                 unfilledColor="#1a1a1a"
             />
             <Text style={styles.progressText}>
-            {`${item.progress}% ${item.isDefeated ? '✅ Defeated' : ''}`}
+                {`${item.progress.toFixed(1)}% ${item.isDefeated ? '✅ Defeated' : ''}`}
             </Text>
+
         </View>
     );
-    
+
     return (
         <View style={styles.container}>
             <Text style={styles.header}>👾 Boss Quests</Text>
@@ -175,5 +190,5 @@ const styles = StyleSheet.create({
     tierIcon: {
         fontSize: 18,
         marginBottom: 6,
-      },      
+    },
 });

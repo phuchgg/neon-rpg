@@ -8,7 +8,7 @@ import {
   Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../utils/navigation';
 import { Boss } from '../utils/type';
@@ -17,6 +17,7 @@ import LottieView from 'lottie-react-native';
 import { Audio } from 'expo-av';
 import Svg, { Line } from 'react-native-svg';
 import { CosmeticManager } from '../utils/CosmeticManager';
+import { useCallback } from 'react';
 
 const { width, height } = Dimensions.get('window');
 
@@ -56,40 +57,43 @@ export default function BossMapScreen() {
     });
   }, []);
 
-  useEffect(() => {
-    const load = async () => {
-      const json = await AsyncStorage.getItem('bosses');
-      const storedZone = await AsyncStorage.getItem('lastUnlockedZone');
-      let lastUnlockedZone = parseInt(storedZone ?? '0');
-
-      if (json) {
-        const loadedBosses: Boss[] = JSON.parse(json);
-        setBosses(loadedBosses);
-
-        const defeated = loadedBosses.filter((b) => b.isDefeated).length;
-        const currentZone = defeated < 3 ? 1 : defeated < 6 ? 2 : 3;
-
-        if (currentZone > lastUnlockedZone) {
-          setShowZoneUnlock(true);
-          setShowZoneBanner(true);
-          playUnlockSound();
-          await AsyncStorage.setItem('lastUnlockedZone', currentZone.toString());
-          setTimeout(() => {
-            setShowZoneUnlock(false);
-            setShowZoneBanner(false);
-          }, 2500);
+  useFocusEffect(
+    useCallback(() => {
+      const load = async () => {
+        const json = await AsyncStorage.getItem('bosses');
+        const storedZone = await AsyncStorage.getItem('lastUnlockedZone');
+        let lastUnlockedZone = parseInt(storedZone ?? '0');
+  
+        if (json) {
+          const loadedBosses: Boss[] = JSON.parse(json);
+          setBosses(loadedBosses);
+  
+          const defeated = loadedBosses.filter((b) => b.isDefeated).length;
+          const currentZone = defeated < 3 ? 1 : defeated < 6 ? 2 : 3;
+  
+          if (currentZone > lastUnlockedZone) {
+            setShowZoneUnlock(true);
+            setShowZoneBanner(true);
+            playUnlockSound();
+            await AsyncStorage.setItem('lastUnlockedZone', currentZone.toString());
+            setTimeout(() => {
+              setShowZoneUnlock(false);
+              setShowZoneBanner(false);
+            }, 2500);
+          }
         }
-      }
-    };
-
-    const loadCosmetics = async () => {
-      const cosmetics = await CosmeticManager.getEquippedCosmetics();
-      if (cosmetics.hud) setEquippedHud(cosmetics.hud);
-    };
-
-    load();
-    loadCosmetics();
-  }, []);
+      };
+  
+      const loadCosmetics = async () => {
+        const cosmetics = await CosmeticManager.getEquippedCosmetics();
+        if (cosmetics.hud) setEquippedHud(cosmetics.hud);
+      };
+  
+      load();
+      loadCosmetics();
+    }, [])
+  );
+  
 
   const defeatedCount = bosses.filter((b) => b.isDefeated).length;
   let currentMap;
@@ -111,6 +115,23 @@ export default function BossMapScreen() {
 
   return (
     <ImageBackground source={currentMap} style={styles.map} resizeMode="cover">
+      
+      {/* Add Boss Button */}
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => navigation.navigate('CreateBossScreen')}
+      >
+        <Text style={styles.addButtonText}>+ Add Boss</Text>
+      </TouchableOpacity>
+
+      {/* Back to TaskScreen */}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.navigate('TaskScreen')}
+      >
+        <Text style={styles.backButtonText}>← Back</Text>
+      </TouchableOpacity>
+
       {equippedHud === 'hud_nightwave' && <View style={styles.hudOverlay} />}
 
       {showZoneBanner && (
@@ -195,11 +216,7 @@ export default function BossMapScreen() {
 }
 
 const styles = StyleSheet.create({
-  map: {
-    flex: 1,
-    width: width,
-    height: height,
-  },
+  map: { flex: 1, width, height },
   bossNode: {
     position: 'absolute',
     padding: 10,
@@ -207,15 +224,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fff',
   },
-  bossText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  lockedText: {
-    fontSize: 12,
-    color: '#aaa',
-    marginTop: 4,
-  },
+  bossText: { color: '#fff', fontWeight: 'bold' },
+  lockedText: { fontSize: 12, color: '#aaa', marginTop: 4 },
   lottie: {
     position: 'absolute',
     width: 300,
@@ -236,11 +246,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     zIndex: 11,
   },
-  bannerText: {
-    color: '#00f9ff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
+  bannerText: { color: '#00f9ff', fontSize: 18, fontWeight: 'bold' },
   hudOverlay: {
     ...StyleSheet.absoluteFillObject,
     borderWidth: 2,
@@ -249,4 +255,30 @@ const styles = StyleSheet.create({
     zIndex: 4,
     opacity: 0.4,
   },
+  addButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    backgroundColor: '#00f9ff22',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderColor: '#00f9ff',
+    borderWidth: 1,
+    zIndex: 20,
+  },
+  addButtonText: { color: '#00f9ff', fontWeight: '600' },
+  backButton: {
+    position: 'absolute',
+    top: 40,
+    left: 20,
+    backgroundColor: '#1a1a2eaa',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderColor: '#00f9ff44',
+    borderWidth: 1,
+    zIndex: 20,
+  },
+  backButtonText: { color: '#fff' },
 });

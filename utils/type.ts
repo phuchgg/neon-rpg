@@ -12,6 +12,8 @@ export interface Task {
 export interface Boss {
     id: string;
     title: string;
+    xpRemaining: number;  // ✅ New field
+  totalXp: number;      // ✅ Total HP for progress %
     description: string;
     progress: number;
     isDefeated: boolean;
