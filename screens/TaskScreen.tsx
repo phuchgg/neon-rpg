@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback  } from 'react';
-import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet, Alert, Animated,  } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet, Alert, Animated, } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import uuid from 'react-native-uuid';
 import * as Progress from 'react-native-progress';
@@ -8,6 +8,7 @@ import { Task, Boss, Quest } from '../utils/type';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useTheme } from '../contexts/ThemeContext';
 import { themes } from '../utils/themes';
 import { RootStackParamList } from '../utils/navigation';
@@ -16,6 +17,10 @@ import { CosmeticManager } from '../utils/CosmeticManager';
 import QuestTracker from '../contexts/QuestTracker';
 import { tierDamagePercentMap } from '../utils/bossConstants';
 import { useFocusEffect } from '@react-navigation/native';
+import initialBosses from '../utils/initialBosses.json'; // Make sure this path is correct!
+import SwipeToDeleteTaskRow from '../contexts/SwipeToDeleteTaskRow'; // adjust path if needed
+import { XPManager } from '../utils/XPManager';
+
 
 const getXpForLevel = (level: number): number => {
   return 100 + (level - 1) * 20; // Level 1 = 100, Level 2 = 120, etc.
@@ -68,8 +73,37 @@ export default function TaskScreen() {
   const xpAnim = useRef(new Animated.Value(0)).current;
   const [xpGainAmount, setXpGainAmount] = useState(0); // dynamic amount
   const [equippedBadge, setEquippedBadge] = useState<string | null>(null);
+  const [showMapReset, setShowMapReset] = useState(false);
+  const initialBossesTyped: Boss[] = initialBosses as Boss[];
+  const [showDeleteNotif, setShowDeleteNotif] = useState(false);
 
 
+
+  const clearAllGameData = async () => {
+    await AsyncStorage.multiRemove([
+      'rpgSaveData',      // if you use the consolidated save key
+      'xp',
+      'level',
+      'tasks',
+      'bosses',
+      'quests',
+      'streakCount',
+      'lastActiveDate',
+      'bossHistory',
+      'playerClass',
+      'unlockedRewards',
+      'equippedCosmetics',
+    ]);
+    setEquippedBadge(null);
+    Alert.alert('🗑️ Data Cleared', 'All saved progress has been wiped.');
+    console.log('🗑️ All AsyncStorage game data cleared!');
+  };
+
+  const resetBosses = async () => {
+    await AsyncStorage.setItem('bosses', JSON.stringify(initialBossesTyped));
+    setBosses(initialBossesTyped);
+    console.log('🌍 Map Reset Done!');
+  };
 
   const dynamicStyles = {
     container: {
@@ -117,29 +151,21 @@ export default function TaskScreen() {
       loadBosses();
       loadTasks();
       loadProgress();
-      console.log('🌈 Refreshed on Focus');
     }, [])
   );
-  
+
 
   useEffect(() => {
     const loadCosmetics = async () => {
       const cosmetics = await CosmeticManager.getEquippedCosmetics();
       if (cosmetics.badge) setEquippedBadge(cosmetics.badge);
-      console.log('🎖️ Badge Loaded:', cosmetics.badge);
 
     };
     loadCosmetics();
 
   }, []);
 
-  useEffect(() => {
-    const saveProgress = async () => {
-      await AsyncStorage.setItem('xp', xp.toString());
-      await AsyncStorage.setItem('level', level.toString());
-    };
-    saveProgress();
-  }, [xp, level]);
+
 
 
   const loadTasks = async () => {
@@ -148,13 +174,13 @@ export default function TaskScreen() {
   };
 
   const loadProgress = async () => {
-    const savedXp = await AsyncStorage.getItem('xp');
-    const savedLevel = await AsyncStorage.getItem('level');
-    const savedStreak = await AsyncStorage.getItem('streakCount'); // ✅ ADD THIS
+    const savedXp = await XPManager.getXp();
+    const savedLevel = await XPManager.getLevel();
+    const savedStreak = await AsyncStorage.getItem('streakCount');
 
-    if (savedXp) setXp(parseInt(savedXp));
-    if (savedLevel) setLevel(parseInt(savedLevel));
-    if (savedStreak) setStreak(parseInt(savedStreak)); // ✅ ADD THIS
+    setXp(savedXp);
+    setLevel(savedLevel);
+    if (savedStreak) setStreak(parseInt(savedStreak));
   };
 
   const saveTasks = async (updated: Task[]) => {
@@ -209,17 +235,44 @@ export default function TaskScreen() {
         const newXpRemaining = Math.max(0, b.xpRemaining - damage);
         const newProgress = Math.min(100, ((b.totalXp - newXpRemaining) / b.totalXp) * 100);
         const defeated = newXpRemaining <= 0;
-        
+
 
         if (defeated && !b.isDefeated) {
           setShowBossVictory(true);
           await updateQuestProgress('boss');
           setTimeout(() => setShowBossVictory(false), 1000);
 
-          setXp((prev) => prev + 50);
+          await XPManager.addXp(50);
+          const updatedXp = await XPManager.getXp();
+          const updatedLevel = await XPManager.getLevel();
+          setXp(updatedXp);
+          setLevel(updatedLevel);
+
           Alert.alert('👑 Boss Defeated!', `"${b.title}" has been conquered! +50 XP`);
         }
+        const defeatedCount = bosses.filter((b) => b.isDefeated).length + 1; // +1 includes current defeat
+        console.log('💥 Total Defeated Bosses:', defeatedCount);
 
+        if (defeatedCount >= 5) {
+          await resetBosses();
+        }
+        setShowMapReset(true);
+        setTimeout(() => setShowMapReset(false), 2000);
+
+        // 🎯 Boss History Tracking
+        const playerClass = await AsyncStorage.getItem('playerClass');
+        const history = JSON.parse(await AsyncStorage.getItem('bossHistory') || '[]');
+
+        history.push({
+          id: b.id,
+          title: b.title,
+          defeatedAt: new Date().toISOString(),
+          xpEarned: 50,
+          playerClass: playerClass || 'Unknown'
+        });
+
+        await AsyncStorage.setItem('bossHistory', JSON.stringify(history));
+        console.log('🗂️ Boss History Updated:', b.title);
         return { ...b, xpRemaining: newXpRemaining, progress: newProgress, isDefeated: defeated };
 
       }
@@ -245,56 +298,57 @@ export default function TaskScreen() {
       const playerClass = await AsyncStorage.getItem('playerClass');
       const baseXp = 10;
       const bonusAmount = applyClassBonus(task, baseXp, playerClass);
-      const newXp = xp + bonusAmount;
-      const xpNeeded = getXpForLevel(level);
+    
+      await XPManager.addXp(bonusAmount);
+      const updatedXp = await XPManager.getXp();
+      const updatedLevel = await XPManager.getLevel();
+      setXp(updatedXp);
+      setLevel(updatedLevel);
+    
       const today = new Date().toISOString().split('T')[0];
       const lastDate = await AsyncStorage.getItem('lastActiveDate');
       const storedStreak = await AsyncStorage.getItem('streakCount');
       const streakValue = storedStreak ? parseInt(storedStreak) : 0;
       await updateQuestProgress('task');
-
-      // Check if streak updated today
+    
       if (lastDate !== today) {
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
         let updatedStreak = 1;
-
+    
         if (lastDate === yesterday) {
           updatedStreak = streakValue + 1;
         }
         setStreak(updatedStreak);
         await AsyncStorage.setItem('streakCount', updatedStreak.toString());
         await AsyncStorage.setItem('lastActiveDate', today);
-
-        // 🎁 Streak Rewards:
+    
         if (updatedStreak === 3) {
-          setXp((prev) => prev + 20);
+          await XPManager.addXp(50);
+          const updatedXp = await XPManager.getXp();
+          const updatedLevel = await XPManager.getLevel();
+          setXp(updatedXp);
+          setLevel(updatedLevel);
           setShowStreakBonus(true);
           setTimeout(() => setShowStreakBonus(false), 1000);
         }
-
+    
         if (updatedStreak === 7) {
           Alert.alert('🔥 Badge Unlocked!', 'You earned a glowing streak badge! (Future quest)');
         }
       }
-
-      if (newXp >= xpNeeded) {
+      if (updatedLevel > level) {
         setShowLottie(true);
         setTimeout(() => {
           setShowLottie(false);
-          setXp(newXp - xpNeeded);
-          setLevel((prevLevel) => {
-            const newLevel = prevLevel + 1;
-            Alert.alert('Level Up!', `You're now Level ${newLevel}! 🎉`);
-            return newLevel;
-          });
+          Alert.alert('Level Up!', `You're now Level ${updatedLevel}! 🎉`);
         }, 2000);
-      } else {
-        setXp(newXp);
-        if (bonusAmount > 0) {
-          triggerXpAnimation(bonusAmount);
-        }
+      }
+
+      if (bonusAmount > 0) {
+        triggerXpAnimation(bonusAmount);
       }
     }
+
 
     setTasks(updatedTasks);
     saveTasks(updatedTasks);
@@ -396,6 +450,7 @@ export default function TaskScreen() {
         <TouchableOpacity onPress={() => navigation.navigate('BossMapScreen')} style={styles.navButton}>
           <Text style={styles.navButtonText}>🗺️ Boss Map</Text>
         </TouchableOpacity>
+        
         <TouchableOpacity onPress={() => navigation.navigate('RewardStoreScreen')} style={styles.navButton}>
           <Text style={styles.navButtonText}>🏪 Reward Store</Text>
         </TouchableOpacity>
@@ -403,6 +458,19 @@ export default function TaskScreen() {
           <Text style={styles.navButtonText}>🧑‍💻 Role Shop</Text>
         </TouchableOpacity>
       </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+      <TouchableOpacity onPress={() => navigation.navigate('QuestJournalScreen')} style={styles.navButton}>
+  <Text style={styles.navButtonText}>📔 Quest Journal</Text>
+</TouchableOpacity>
+<TouchableOpacity onPress={() => navigation.navigate('QuestHistoryScreen')} style={styles.navButton}>
+  <Text style={styles.navButtonText}>📜 History</Text>
+</TouchableOpacity>
+<TouchableOpacity onPress={() => navigation.navigate('ClassQuestScreen')} style={styles.navButton}>
+  <Text style={styles.navButtonText}>🧑‍💼 Class Quests</Text>
+</TouchableOpacity>
+
+</View>
+
 
 
       <View style={styles.inputContainer}>
@@ -439,35 +507,41 @@ export default function TaskScreen() {
         data={tasks}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => toggleTask(item.id)}
-            style={[
-              styles.taskItem,
-              item.completed && styles.completedTask,
-            ]}
-          >
-            <Text style={[styles.taskText, dynamicStyles.taskText]}>
-              {item.completed ? '✅ ' : '🕹️ '} {item.title}
-            </Text>
-            {item.bossId && (() => {
-              const boss = bosses.find((b) => b.id === item.bossId);
-              if (!boss) return null;
-
-              return (
-                <TouchableOpacity onPress={() => navigation.navigate('BossDetailScreen', { bossId: boss.id })}>
-                  <Text style={styles.bossLabel}>
-                    🔗 {boss.title} — {boss.progress}% {boss.isDefeated ? '✅' : ''}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })()}
-          </TouchableOpacity>
+          <SwipeToDeleteTaskRow
+            item={item}
+            bosses={bosses}
+            onToggleTask={toggleTask}
+            onDeleteTask={(id) => {
+              const updated = tasks.filter((t) => t.id !== id);
+              setTasks(updated);
+              saveTasks(updated);
+            }}
+            theme={theme}
+          />
         )}
       />
+
+
+
+      {showDeleteNotif && (
+        <View style={styles.snackbar}>
+          <Text style={styles.snackbarText}>Task deleted ✅</Text>
+        </View>
+      )}
+
       <QuestTracker />
+      {__DEV__ && (
+        <TouchableOpacity onPress={clearAllGameData} style={styles.clearButton}>
+          <Text style={styles.clearButtonText}>🗑️ Clear All Data</Text>
+        </TouchableOpacity>
+      )}
+
     </View>
+
   );
+
 }
+
 
 const makeStyles = (theme: typeof themes.default) =>
   StyleSheet.create({
@@ -524,12 +598,13 @@ const makeStyles = (theme: typeof themes.default) =>
       color: theme.text,
       borderRadius: 8,
       marginRight: 8,
+
     },
     taskItem: {
       padding: 12,
       backgroundColor: '#1a1a2e', // Optional: make this theme.secondaryBackground
       borderRadius: 8,
-      marginBottom: 10,
+      marginBottom: 10
     },
     completedTask: {
       backgroundColor: '#14213d',
@@ -595,6 +670,79 @@ const makeStyles = (theme: typeof themes.default) =>
       color: '#00f9ff',
       fontWeight: 'bold',
       fontSize: 12,
+    },
+    clearButton: {
+      backgroundColor: '#ff4d4d',
+      padding: 10,
+      borderRadius: 8,
+      marginTop: 20,
+      alignItems: 'center',
+    },
+    clearButtonText: {
+      color: '#fff',
+      fontWeight: 'bold',
+    },
+    deleteButtonText: {
+      color: '#fff',
+      fontWeight: 'bold',
+    },
+    snackbar: {
+      position: 'absolute',
+      bottom: 30,
+      left: 20,
+      right: 10,
+      backgroundColor: '#1a1a2e',
+      borderRadius: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      borderColor: '#00f9ff',
+      borderWidth: 1,
+    },
+    snackbarText: {
+      color: '#00f9ff',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    taskRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      backgroundColor: '#1a1a2e',
+      borderRadius: 8,
+      marginBottom: 10,
+      overflow: 'hidden'
+    },
+    inlineDeleteButton: {
+      backgroundColor: '#ff4d4d',
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      marginLeft: 10,
+    },
+
+    taskContent: {
+      flex: 1,
+      paddingHorizontal: 12,
+      justifyContent: 'center',
+    },
+    swipeDeleteButton: {
+      backgroundColor: '#ff4d4d',
+      justifyContent: 'center',
+      alignItems: 'center',
+      width: 80,
+      height: '100%',
+    },
+    swipeDeleteText: {
+      color: '#fff',
+      fontWeight: 'bold',
     },
 
   });

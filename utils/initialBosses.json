@@ -1,0 +1,24 @@
+[
+    {
+        "id": "boss1",
+        "title": "Get Driver License",
+        "progress": 0,
+        "isDefeated": false,
+        "tier": "mini",
+        "xpRemaining": 100,
+        "totalXp": 100,
+        "description": "Pass the driving exam",
+        "createdAt": 1680000000000
+      },
+      {
+        "id": "boss2",
+        "title": "Launch Portfolio Website",
+        "progress": 0,
+        "isDefeated": false,
+        "tier": "elite",
+        "xpRemaining": 300,
+        "totalXp": 300,
+        "description": "Publish your developer portfolio",
+        "createdAt": 1680000000000
+      }
+  ]

@@ -26,6 +26,7 @@ export default function App() {
       <ThemeProvider>
         <NavigationContainer>
           <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="ClassSelectScreen" component={ClassSelectScreen} />
             <Stack.Screen name="TaskScreen" component={TaskScreen} />
             <Stack.Screen name="BossMapScreen" component={BossMapScreen} />
             <Stack.Screen name="BossDetailScreen" component={BossDetailScreen} />
@@ -37,7 +38,6 @@ export default function App() {
             <Stack.Screen name="QuestJournalScreen" component={QuestJournalScreen} />
             <Stack.Screen name="QuestHistoryScreen" component={QuestHistoryScreen} />
             <Stack.Screen name="ClassQuestScreen" component={ClassQuestScreen} />
-            <Stack.Screen name="ClassSelectScreen" component={ClassSelectScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </ThemeProvider>

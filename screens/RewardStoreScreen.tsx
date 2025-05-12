@@ -46,23 +46,27 @@ export default function RewardStoreScreen() {
   const [unlocked, setUnlocked] = useState<string[]>([]);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'RewardStoreScreen'>>();
   const { setThemeByKey, themeKey } = useTheme();
+  const [totalXpBank, setTotalXpBank] = useState(0);
 
   useEffect(() => {
     const load = async () => {
+      const savedTotalXp = await AsyncStorage.getItem('totalXpBank');
+      if (savedTotalXp) setTotalXpBank(parseInt(savedTotalXp));
+  
       const savedXp = await AsyncStorage.getItem('xp');
       const savedRewards = await AsyncStorage.getItem('unlockedRewards');
       if (savedXp) setXp(parseInt(savedXp));
       if (savedRewards) setUnlocked(JSON.parse(savedRewards));
-
+  
       const streak = parseInt(await AsyncStorage.getItem('questStreak') ?? '0');
       const updated = [...(savedRewards ? JSON.parse(savedRewards) : [])];
-
+  
       if (streak >= 7 && !updated.includes('badge_glitch')) {
         updated.push('badge_glitch');
         await AsyncStorage.setItem('unlockedRewards', JSON.stringify(updated));
         Alert.alert('🎖️ Badge Unlocked!', 'You earned the Glitch Badge for your 7-day quest streak!');
       }
-
+  
       setUnlocked(updated);
     };
     load();
@@ -85,22 +89,22 @@ export default function RewardStoreScreen() {
       Alert.alert('Already Unlocked', 'You already own this reward.');
       return;
     }
-
-    if (xp < cost) {
-      const xpShort = cost - xp;
+  
+    if (totalXpBank < cost) {
+      const xpShort = cost - totalXpBank;
       Alert.alert('Not Enough XP', `You need ${xpShort} more XP to unlock this reward.`);
       return;
     }
-
+  
     const updatedRewards = [...unlocked, rewardId];
-    const newXp = xp - cost;
-
+    const newTotalXpBank = totalXpBank - cost;
+  
     setUnlocked(updatedRewards);
-    setXp(newXp);
-
+    setTotalXpBank(newTotalXpBank);
+  
     await AsyncStorage.setItem('unlockedRewards', JSON.stringify(updatedRewards));
-    await AsyncStorage.setItem('xp', newXp.toString());
-
+    await AsyncStorage.setItem('totalXpBank', newTotalXpBank.toString());
+  
     const reward = rewards.find((r) => r.id === rewardId);
     if (reward?.type === 'badge') {
       await CosmeticManager.setEquippedBadge(rewardId);
@@ -108,13 +112,14 @@ export default function RewardStoreScreen() {
     if (reward?.type === 'hud') {
       await CosmeticManager.setEquippedHud(rewardId);
     }
-
+  
     if (rewardId in themes) {
       await setThemeByKey(rewardId as keyof typeof themes);
     }
-
+  
     Alert.alert('🎁 Unlocked!', `You've unlocked: ${rewardId}`);
   };
+  
 
   const handleEquip = async (rewardId: string) => {
     await setThemeByKey(rewardId as keyof typeof themes);
@@ -162,7 +167,7 @@ export default function RewardStoreScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🎁 Reward Store</Text>
-      <Text style={styles.xp}>Current XP: {xp}</Text>
+      <Text style={styles.xp}>Total XP Bank: {totalXpBank}</Text>
       <FlatList
         data={rewards}
         keyExtractor={(item) => item.id}

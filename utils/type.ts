@@ -30,7 +30,7 @@ export type Quest = {
   description: string;
   progress: number; // 0–100
   isComplete: boolean;
-  type: 'task' | 'boss';
+  type: 'task' | 'boss' | 'class';
   condition: {
     target: number; // e.g. 5 tasks or 3 bosses
     current: number;

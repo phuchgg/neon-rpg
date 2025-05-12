@@ -1,46 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const classes = [
-  {
-    id: 'ghostrunner',
-    name: '🏃 Ghostrunner',
-    lore: 'Move quiet. Move fast. Leave no task behind.',
-    bonus: '+20% XP for fast tasks (≤10 chars)',
-  },
-  {
-    id: 'netcrasher',
-    name: '💻 Netcrasher',
-    lore: 'There is no task too tangled for a line of truth.',
-    bonus: '+XP for tasks like “code”, “debug”, “fix”, “study”',
-  },
-  {
-    id: 'synthmancer',
-    name: '🔮 Synthmancer',
-    lore: 'Balance brings mastery. Consistency is divinity.',
-    bonus: '+2 XP for all completed tasks',
-  },
-  {
-    id: 'edgewalker',
-    name: '🔥 Edgewalker (Locked)',
-    lore: 'They do not chase XP. They hunt legacy.',
-    bonus: '+XP for "boss", "project", "long" tasks',
-    locked: true,
-  },
-];
+import { classes } from '../utils/classes';
 
 export default function ClassSelectScreen({ navigation }: any) {
-  const [selected, setSelected] = useState('');
-
   useEffect(() => {
+    const checkClass = async () => {
+      const saved = await AsyncStorage.getItem('playerClass');
+      if (saved) navigation.replace('TaskScreen');
+    };
     checkClass();
   }, []);
-
-  const checkClass = async () => {
-    const saved = await AsyncStorage.getItem('playerClass');
-    if (saved) navigation.replace('TaskScreen');
-  };
 
   const chooseClass = async (roleId: string) => {
     await AsyncStorage.setItem('playerClass', roleId);
