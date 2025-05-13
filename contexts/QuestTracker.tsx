@@ -1,21 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Progress from 'react-native-progress';
 import { Quest } from '../utils/type';
 import { useTheme } from './ThemeContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function QuestTracker() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const { theme } = useTheme();
 
-  useEffect(() => {
-    const loadQuests = async () => {
-      const json = await AsyncStorage.getItem('quests');
-      if (json) setQuests(JSON.parse(json));
-    };
-    loadQuests();
-  }, []);
+  const loadQuests = async () => {
+    const json = await AsyncStorage.getItem('quests');
+    if (json) setQuests(JSON.parse(json));
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadQuests();
+    }, [])
+  );
 
   if (quests.length === 0) return null;
 
@@ -33,7 +37,7 @@ export default function QuestTracker() {
             width={null}
             height={10}
             borderRadius={8}
-            color="#39ff14"
+            color={quest.isComplete ? '#39ff14' : '#00f9ff'}
             unfilledColor="#222"
             borderWidth={0}
             style={{ marginTop: 4 }}
@@ -47,7 +51,6 @@ export default function QuestTracker() {
 const styles = StyleSheet.create({
   container: {
     marginTop: 30,
-    paddingHorizontal: 10,
   },
   title: {
     fontSize: 20,

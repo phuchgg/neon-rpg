@@ -2,7 +2,7 @@ import { Boss } from './type';
 
 // Boss damage per task (%)
 export const tierDamagePercentMap: Record<Boss['tier'], number> = {
-  mini: 2,   // Mini bosses lose 2% per task
-  elite: 1,  // Elite bosses lose 1% per task
-  mega: 0.5, // Mega bosses lose 0.5% per task
+  mini: 10,   // Mini bosses lose 10% per task
+  elite: 5,  // Elite bosses lose 5% per task
+  mega: 1, // Mega bosses lose 1% per task
 };

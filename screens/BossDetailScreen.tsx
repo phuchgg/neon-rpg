@@ -1,17 +1,15 @@
-import React, { useEffect, useState, useCallback  } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   FlatList,
   StyleSheet,
-  TouchableOpacity,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { Task, Boss } from '../utils/type';
 import { RootStackParamList } from '../utils/navigation';
-import { useFocusEffect } from '@react-navigation/native';
-
+import { useTheme } from '../contexts/ThemeContext';
 
 type BossDetailRouteProp = RouteProp<RootStackParamList, 'BossDetailScreen'>;
 
@@ -21,6 +19,8 @@ export default function BossDetailScreen() {
 
   const [boss, setBoss] = useState<Boss | null>(null);
   const [linkedTasks, setLinkedTasks] = useState<Task[]>([]);
+  const { theme } = useTheme();
+  const styles = makeStyles(theme);
 
   useEffect(() => {
     loadBoss();
@@ -60,10 +60,10 @@ export default function BossDetailScreen() {
 
       <View style={styles.progressContainer}>
         <Text style={styles.progressLabel}>
-        {`Progress: ${boss.progress ?? 0}% ${boss.isDefeated ? '✅' : ''}`}
+          {`Progress: ${boss.progress ?? 0}% ${boss.isDefeated ? '✅' : ''}`}
         </Text>
         <View style={styles.progressBarOuter}>
-        <View style={[styles.progressBarInner, { width: `${boss.progress ?? 0}%` }]} />
+          <View style={[styles.progressBarInner, { width: `${boss.progress ?? 0}%`, backgroundColor: boss.isDefeated ? '#4caf50' : theme.accent }]} />
         </View>
       </View>
 
@@ -85,54 +85,54 @@ export default function BossDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0d0c1d',
-    padding: 20,
-    paddingTop: 60,
-  },
-  title: {
-    fontSize: 22,
-    color: '#00f9ff',
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  desc: {
-    color: '#aaa',
-    fontStyle: 'italic',
-    marginBottom: 20,
-  },
-  progressContainer: {
-    marginBottom: 20,
-  },
-  progressLabel: {
-    color: '#fff',
-    marginBottom: 6,
-  },
-  progressBarOuter: {
-    height: 12,
-    backgroundColor: '#1a1a2e',
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
-  progressBarInner: {
-    height: 12,
-    backgroundColor: '#00f9ff',
-  },
-  subheading: {
-    color: '#00f9ff',
-    fontSize: 16,
-    marginTop: 20,
-    marginBottom: 10,
-    fontWeight: '600',
-  },
-  noTask: {
-    color: '#888',
-    fontStyle: 'italic',
-  },
-  taskText: {
-    color: '#fefefe',
-    paddingVertical: 6,
-  },
-});
+const makeStyles = (theme: typeof import('../utils/themes').themes.default) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+      padding: 20,
+      paddingTop: 60,
+    },
+    title: {
+      fontSize: 22,
+      color: theme.accent,
+      fontWeight: 'bold',
+      marginBottom: 10,
+    },
+    desc: {
+      color: theme.text,
+      fontStyle: 'italic',
+      marginBottom: 20,
+    },
+    progressContainer: {
+      marginBottom: 20,
+    },
+    progressLabel: {
+      color: theme.text,
+      marginBottom: 6,
+    },
+    progressBarOuter: {
+      height: 12,
+      backgroundColor: '#1a1a2e',
+      borderRadius: 6,
+      overflow: 'hidden',
+    },
+    progressBarInner: {
+      height: 12,
+    },
+    subheading: {
+      color: theme.accent,
+      fontSize: 16,
+      marginTop: 20,
+      marginBottom: 10,
+      fontWeight: '600',
+    },
+    noTask: {
+      color: '#888',
+      fontStyle: 'italic',
+    },
+    taskText: {
+      color: theme.text,
+      paddingVertical: 6,
+    },
+  });

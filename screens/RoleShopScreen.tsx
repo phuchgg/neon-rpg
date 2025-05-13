@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../utils/navigation';
 import { playerClasses, CLASS_SWITCH_COST } from '../utils/playerClasses';
+import { useTheme } from '../contexts/ThemeContext';
 
 type RoleShopScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'RoleShopScreen'>;
@@ -11,22 +12,29 @@ type RoleShopScreenProps = {
 
 export default function RoleShopScreen({ navigation }: RoleShopScreenProps) {
   const [currentClass, setCurrentClass] = useState('');
-  const [xp, setXp] = useState(0);
+  const [totalXp, setTotalXp] = useState(0);
+  const { theme } = useTheme();
 
   useEffect(() => {
     const loadData = async () => {
       const storedClass = await AsyncStorage.getItem('playerClass');
-      const storedXp = await AsyncStorage.getItem('xp');
+      const storedTotalXp = await AsyncStorage.getItem('totalXp');
       if (storedClass) setCurrentClass(storedClass);
-      if (storedXp) setXp(parseInt(storedXp));
+      if (storedTotalXp) setTotalXp(parseInt(storedTotalXp));
     };
     loadData();
   }, []);
 
+  const addHistory = async (item: { date: string; type: 'class' | 'quest' | 'boss' | 'reward'; description: string; details?: any }) => {
+    const existing = JSON.parse(await AsyncStorage.getItem('activityHistory') || '[]');
+    existing.push(item);
+    await AsyncStorage.setItem('activityHistory', JSON.stringify(existing));
+  };
+
   const handleClassSwitch = async (newClassId: string) => {
     if (newClassId === currentClass) return;
 
-    if (xp < CLASS_SWITCH_COST) {
+    if (totalXp < CLASS_SWITCH_COST) {
       Alert.alert('Not enough XP', `You need ${CLASS_SWITCH_COST} XP to change your class.`);
       return;
     }
@@ -39,16 +47,20 @@ export default function RoleShopScreen({ navigation }: RoleShopScreenProps) {
         {
           text: 'Confirm',
           onPress: async () => {
-            const newXp = xp - CLASS_SWITCH_COST;
-            setXp(newXp);
+            const newTotalXp = totalXp - CLASS_SWITCH_COST;
+            setTotalXp(newTotalXp);
             setCurrentClass(newClassId);
 
-            await AsyncStorage.setItem('xp', newXp.toString());
+            await AsyncStorage.setItem('totalXp', newTotalXp.toString());
             await AsyncStorage.setItem('playerClass', newClassId);
 
-            const totalXp = parseInt(await AsyncStorage.getItem('totalXpBank') ?? '0');
-            const newTotalXp = totalXp + CLASS_SWITCH_COST; // for tracking "used XP" too
-            await AsyncStorage.setItem('totalXpBank', newTotalXp.toString());
+            // ✅ Lưu vào lịch sử
+            await addHistory({
+              date: new Date().toISOString(),
+              type: 'class',
+              description: `Switched to ${newClassId}`,
+              details: { classId: newClassId },
+            });
 
             Alert.alert('Class changed!', `You are now a ${newClassId}.`);
             navigation.goBack();
@@ -59,73 +71,67 @@ export default function RoleShopScreen({ navigation }: RoleShopScreenProps) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>🧬 Switch Your Role</Text>
-      <Text style={styles.current}>Current: {currentClass || 'Unknown'} | XP: {xp}</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Text style={[styles.title, { color: theme.accent }]}>🧬 Switch Your Role</Text>
+      <Text style={[styles.current, { color: theme.text }]}>
+        Current: {currentClass || 'Unknown'} | Total XP: {totalXp}
+      </Text>
+
       {playerClasses.map((cls) => {
-  const isLocked = cls.locked === true;
+        const isLocked = cls.locked === true;
+        return (
+          <TouchableOpacity
+            key={cls.id}
+            style={[
+              styles.card(theme),
+              cls.id === currentClass && styles.disabled,
+              isLocked && styles.lockedCard,
+            ]}
+            onPress={() => {
+              if (!isLocked && cls.id !== currentClass) {
+                handleClassSwitch(cls.id);
+              }
+            }}
+            disabled={isLocked || cls.id === currentClass}
+          >
+            <Text style={[styles.name, { color: theme.accent }]}>{cls.name}</Text>
+            <Text style={[styles.bonus, { color: theme.text }]}>{cls.bonus}</Text>
+            <Text style={[styles.lore, { color: theme.text }]}>{cls.lore}</Text>
 
-  return (
-    <TouchableOpacity
-      key={cls.id}
-      style={[
-        styles.card,
-        cls.id === currentClass && styles.disabled,
-        isLocked && styles.lockedCard,
-      ]}
-      onPress={() => {
-        if (!isLocked && cls.id !== currentClass) {
-          handleClassSwitch(cls.id);
-        }
-      }}
-      disabled={isLocked || cls.id === currentClass}
-    >
-      <Text style={styles.name}>{cls.name}</Text>
-      <Text style={styles.bonus}>{cls.bonus}</Text>
-      <Text style={styles.lore}>{cls.lore}</Text>
-
-      {isLocked && (
-        <Text style={styles.lockedLabel}>🔒 Unlock at 17-day streak</Text>
-      )}
-      {cls.id === currentClass && !isLocked && (
-        <Text style={styles.currentLabel}>✅ Currently Equipped</Text>
-      )}
-    </TouchableOpacity>
-  );
-})}
-
-
+            {isLocked && (
+              <Text style={[styles.lockedLabel, { color: '#ff4d4d' }]}>
+                🔒 Unlock at 17-day streak
+              </Text>
+            )}
+            {cls.id === currentClass && !isLocked && (
+              <Text style={[styles.currentLabel, { color: theme.accent }]}>
+                ✅ Currently Equipped
+              </Text>
+            )}
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0c1d', padding: 20, paddingTop: 60 },
-  title: { fontSize: 22, color: '#00f9ff', fontWeight: 'bold', textAlign: 'center', marginBottom: 16 },
-  current: { color: '#ccc', textAlign: 'center', marginBottom: 24 },
-  card: { backgroundColor: '#1a1a2e', padding: 16, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: '#00f9ff66' },
+  container: { flex: 1, padding: 20, paddingTop: 60 },
+  title: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 16 },
+  current: { textAlign: 'center', marginBottom: 24 },
+  card: (theme) => ({
+    backgroundColor: theme.background,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: `${theme.accent}66`,
+  }),
   disabled: { opacity: 0.4 },
-  name: { color: '#00f9ff', fontSize: 18, fontWeight: '600' },
-  bonus: { color: '#fefefe', fontStyle: 'italic', margin: 6 },
-  lock: { color: '#aaa', fontSize: 14 },
-  lockedCard: {
-    opacity: 0.3,
-    borderColor: '#555',
-  },
-  lockedLabel: {
-    marginTop: 6,
-    color: '#ff4d4d',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  lore: {
-    color: '#ccc',
-    fontSize: 14,
-    marginTop: 4,
-  },
-  currentLabel: {
-    color: '#00f9ff',
-    fontSize: 12,
-    marginTop: 6,
-  },
+  name: { fontSize: 18, fontWeight: '600' },
+  bonus: { fontStyle: 'italic', margin: 6 },
+  lore: { fontSize: 14, marginTop: 4 },
+  lockedCard: { opacity: 0.3, borderColor: '#555' },
+  lockedLabel: { marginTop: 6, fontWeight: '600', textAlign: 'center' },
+  currentLabel: { fontSize: 12, marginTop: 6 },
 });

@@ -1,223 +1,194 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Dimensions, FlatList, TouchableOpacity, Alert } from 'react-native';
-import { useTheme } from '../contexts/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../contexts/ThemeContext';
+import { XPManager } from '../utils/XPManager';
 import { themes } from '../utils/themes';
-import { useNavigation } from '@react-navigation/native';
-import { useRef } from 'react';
 import LottieView from 'lottie-react-native';
+import { useNavigation } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 const themeList = Object.entries(themes) as [keyof typeof themes, typeof themes.default][];
 
 const costMap: Record<string, number> = {
-    default: 0,
-    neon_theme: 100,
-    fire_red: 120,
-    nightwave: 130,
-    ice_pulse: 140,
-    synthcore: 160,
+  default: 0,
+  neon_theme: 1000,
+  fire_red: 1200,
+  nightwave: 1300,
+  ice_pulse: 1400,
+  synthcore: 1600,
 };
 
-
 const themePreviewMap: Record<string, { colors: string[] }> = {
-    default: {
-        colors: ['#0d0c1d', '#fefefe', '#00f9ff'], // 🧬 Starter theme colors
-    },
-    neon_theme: { colors: ['#001b0f', '#00ffcc', '#39ff14'] },
-    fire_red: { colors: ['#1a0000', '#ffe0e0', '#ff1a1a'] },
-    nightwave: { colors: ['#0a0f29', '#9cd8ff', '#4f9bff'] },
-    ice_pulse: { colors: ['#011f2a', '#b0faff', '#00e0ff'] },
-    synthcore: { colors: ['#1b0029', '#ffb6f9', '#ff3cac'] },
+  default: { colors: ['#0d0c1d', '#fefefe', '#00f9ff'] },
+  neon_theme: { colors: ['#001b0f', '#00ffcc', '#39ff14'] },
+  fire_red: { colors: ['#1a0000', '#ffe0e0', '#ff1a1a'] },
+  nightwave: { colors: ['#0a0f29', '#9cd8ff', '#4f9bff'] },
+  ice_pulse: { colors: ['#011f2a', '#b0faff', '#00e0ff'] },
+  synthcore: { colors: ['#1b0029', '#ffb6f9', '#ff3cac'] },
 };
 
 const ThemePreviewBar = ({ colors }: { colors: string[] }) => (
-    <View style={{ alignItems: 'center' }}>
-        <View style={{ flexDirection: 'row', width: '80%', marginTop: 12, marginBottom: 16 }}>
-            {colors.map((c, i) => (
-                <View
-                    key={i}
-                    style={{
-                        flex: 1,
-                        height: 8,
-                        backgroundColor: c,
-                        borderTopLeftRadius: i === 0 ? 4 : 0,
-                        borderTopRightRadius: i === colors.length - 1 ? 4 : 0,
-                    }}
-                />
-            ))}
-        </View>
+  <View style={{ alignItems: 'center' }}>
+    <View style={{ flexDirection: 'row', width: '80%', marginTop: 12, marginBottom: 16 }}>
+      {colors.map((c, i) => (
+        <View
+          key={i}
+          style={{
+            flex: 1,
+            height: 8,
+            backgroundColor: c,
+            borderTopLeftRadius: i === 0 ? 4 : 0,
+            borderTopRightRadius: i === colors.length - 1 ? 4 : 0,
+          }}
+        />
+      ))}
     </View>
+  </View>
 );
 
-
 export default function ThemeGalleryScreen() {
-    const { theme, themeKey, setThemeByKey } = useTheme();
-    const [equipped, setEquipped] = useState<keyof typeof themes>(themeKey);
-    const navigation = useNavigation();
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const flatListRef = useRef<FlatList>(null);
-    const [xp, setXp] = useState(0);
-    const [unlocked, setUnlocked] = useState<string[]>([]);
-    const [showUnlockAnim, setShowUnlockAnim] = useState(false);
+  const { theme, themeKey, setThemeByKey } = useTheme();
+  const navigation = useNavigation();
+  const flatListRef = useRef<FlatList>(null);
 
-    const handleEquip = async (key: keyof typeof themes) => {
-        await setThemeByKey(key);
-        setEquipped(key);
+  const [totalXpBank, setTotalXpBank] = useState(0);
+  const [unlocked, setUnlocked] = useState<string[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showUnlockAnim, setShowUnlockAnim] = useState(false);
+
+  useEffect(() => {
+    const loadData = async () => {
+      const xpBank = await XPManager.getTotalXpBank();
+      const rewards = await AsyncStorage.getItem('unlockedRewards');
+      setTotalXpBank(xpBank);
+      if (rewards) setUnlocked(JSON.parse(rewards));
     };
+    loadData();
+  }, []);
 
-    useEffect(() => {
-        const loadData = async () => {
-            const savedXp = await AsyncStorage.getItem('xp');
-            const savedRewards = await AsyncStorage.getItem('unlockedRewards');
-            if (savedXp) setXp(parseInt(savedXp));
-            if (savedRewards) setUnlocked(JSON.parse(savedRewards));
-        };
-        loadData();
-    }, []);
+  const handleEquip = async (key: keyof typeof themes) => {
+    await setThemeByKey(key);
+  };
 
-    const confirmUnlock = (key: keyof typeof themes, cost: number) => {
-        Alert.alert(
-            'Unlock Theme?',
-            `This will cost ${cost} XP. Are you sure?`,
-            [
-                {
-                    text: 'Cancel',
-                    style: 'cancel',
-                },
-                {
-                    text: 'Unlock',
-                    onPress: () => handleUnlockAndEquip(key, cost),
-                },
-            ],
-            { cancelable: true }
-        );
-    };
+  const confirmUnlock = (key: keyof typeof themes, cost: number) => {
+    Alert.alert('Unlock Theme?', `Spend ${cost} XP to unlock this theme?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Unlock', onPress: () => handleUnlockAndEquip(key, cost) },
+    ]);
+  };
 
+  const handleUnlockAndEquip = async (key: keyof typeof themes, cost: number) => {
+    if (unlocked.includes(key)) return;
 
-    const handleUnlockAndEquip = async (key: keyof typeof themes, cost: number) => {
-        if (unlocked.includes(key)) return;
+    const success = await XPManager.spendXpBank(cost);
+    if (!success) {
+      Alert.alert('Not Enough XP', `You need ${cost} XP to unlock this theme.`);
+      return;
+    }
 
-        if (xp < cost) {
-            Alert.alert('Not Enough XP', `You need ${cost} XP to unlock this theme.`);
-            return;
-        }
+    const updatedRewards = [...unlocked, key];
+    setUnlocked(updatedRewards);
 
-        const updatedRewards = [...unlocked, key];
-        const newXp = xp - cost;
+    const newBank = totalXpBank - cost;
+    setTotalXpBank(newBank);
 
-        setUnlocked(updatedRewards);
-        setXp(newXp);
+    await AsyncStorage.setItem('unlockedRewards', JSON.stringify(updatedRewards));
+    await setThemeByKey(key);
 
-        await AsyncStorage.setItem('unlockedRewards', JSON.stringify(updatedRewards));
-        await AsyncStorage.setItem('xp', newXp.toString());
+    setShowUnlockAnim(true);
+    setTimeout(() => setShowUnlockAnim(false), 1800);
 
-        await setThemeByKey(key);
-        setShowUnlockAnim(true);
-        setTimeout(() => setShowUnlockAnim(false), 1800);
-        Alert.alert('🎨 Theme Equipped!', `${key.replace('_', ' ').toUpperCase()} is now active.`);
-    };
+    Alert.alert('🎨 Theme Equipped!', `${key.replace('_', ' ').toUpperCase()} is now active.`);
+  };
 
-
-    const renderThemeCard = ({ item }: { item: [keyof typeof themes, typeof themes.default] }) => {
-        const [key, t] = item;
-        const isActiveTheme = key === themeKey;
-        const isUnlocked = unlocked.includes(key);
-        const cost = costMap[key] || 0;
-        const canAfford = xp >= cost;
-        return (
-            <View style={[styles.card, { backgroundColor: t.background }]}>
-                <Text style={{ fontSize: 28, marginBottom: 8 }}>🎨</Text>
-
-                <Text style={[styles.title, { color: t.accent }]}>
-                    {key.replace('_', ' ').toUpperCase()}
-                </Text>
-
-                {themePreviewMap[key] && <ThemePreviewBar colors={themePreviewMap[key].colors} />}
-
-                <Text style={[styles.previewText, { color: t.text }]}>
-                    This is a preview of the theme. Imagine tasks and UI glowing like this!
-                </Text>
-
-                {isUnlocked ? (
-                    isActiveTheme ? (
-                        <View style={styles.equipTag}>
-                            <Text style={styles.equippedText}>✅ Equipped</Text>
-                        </View>
-                    ) : (
-                        <TouchableOpacity onPress={() => handleEquip(key)} style={styles.equipButton}>
-                            <Text style={styles.equipText}>🎨 Equip Theme</Text>
-                        </TouchableOpacity>
-                    )
-                ) : (
-                    <TouchableOpacity
-                        onPress={() => confirmUnlock(key, cost)}
-                        disabled={!canAfford}
-                        style={[
-                            styles.equipButton,
-                            !canAfford && { backgroundColor: '#333' },
-                        ]}
-                    >
-                        <Text
-                            style={[
-                                styles.equipText,
-                                !canAfford && { color: '#777' },
-                            ]}
-                        >
-                            🔓 Unlock & Equip
-                        </Text>
-                    </TouchableOpacity>
-                )}
-
-
-                <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <Text style={styles.backLink}>← Back to Store</Text>
-                </TouchableOpacity>
-                {/* 🟣 Dots */}
-                <View style={styles.dotContainer}>
-                    {themeList.map((_, index) => (
-                        <View
-                            key={index}
-                            style={[
-                                styles.dot,
-                                index === currentIndex ? styles.activeDot : styles.inactiveDot,
-                            ]}
-                        />
-                    ))}
-                </View>
-            </View>
-        );
-    };
-
+  const renderThemeCard = ({ item }: { item: [keyof typeof themes, typeof themes.default] }) => {
+    const [key, t] = item;
+    const isActive = key === themeKey;
+    const isUnlocked = unlocked.includes(key);
+    const cost = costMap[key] || 0;
 
     return (
-        <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <View style={[styles.card, { backgroundColor: t.background }]}>
+        <Text style={{ fontSize: 28, marginBottom: 8 }}>🎨</Text>
+        <Text style={[styles.title, { color: t.accent }]}>{key.replace('_', ' ').toUpperCase()}</Text>
+        {themePreviewMap[key] && <ThemePreviewBar colors={themePreviewMap[key].colors} />}
+        <Text style={[styles.previewText, { color: t.text }]}>
+          This is a preview of the theme. Imagine tasks and UI glowing like this!
+        </Text>
 
-            {showUnlockAnim && (
-                <LottieView
-                    source={require('../assets/lotties/unlock.json')} // 👈 replace with your actual path
-                    autoPlay
-                    loop={false}
-                    style={styles.unlockAnim}
-                />
-            )}
+        {isUnlocked ? (
+          isActive ? (
+            <View style={styles.equipTag}>
+              <Text style={styles.equippedText}>✅ Equipped</Text>
+            </View>
+          ) : (
+            <TouchableOpacity onPress={() => handleEquip(key)} style={styles.equipButton}>
+              <Text style={styles.equipText}>🎨 Equip Theme</Text>
+            </TouchableOpacity>
+          )
+        ) : (
+          <TouchableOpacity
+            onPress={() => confirmUnlock(key, cost)}
+            disabled={totalXpBank < cost}
+            style={[styles.equipButton, totalXpBank < cost && { backgroundColor: '#333' }]}
+          >
+            <Text style={[styles.equipText, totalXpBank < cost && { color: '#777' }]}>
+              🔓 Unlock & Equip
+            </Text>
+          </TouchableOpacity>
+        )}
 
-            <FlatList
-                ref={flatListRef}
-                horizontal
-                pagingEnabled
-                data={themeList}
-                renderItem={renderThemeCard}
-                keyExtractor={([key]) => key}
-                showsHorizontalScrollIndicator={false}
-                onScroll={(e) => {
-                    const index = Math.round(e.nativeEvent.contentOffset.x / width);
-                    setCurrentIndex(index);
-                }}
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.backLink}>← Back to Store</Text>
+        </TouchableOpacity>
+
+        <View style={styles.dotContainer}>
+          {themeList.map((_, index) => (
+            <View
+              key={index}
+              style={[styles.dot, index === currentIndex ? styles.activeDot : styles.inactiveDot]}
             />
+          ))}
         </View>
-
+      </View>
     );
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      {showUnlockAnim && (
+        <LottieView
+          source={require('../assets/lotties/unlock.json')}
+          autoPlay
+          loop={false}
+          style={styles.unlockAnim}
+        />
+      )}
+  
+  <FlatList
+  ref={flatListRef}
+  horizontal
+  pagingEnabled
+  data={themeList}
+  renderItem={({ item }) => {
+    const [key, t] = item;
+    return (
+      <View style={{ flex: 1, backgroundColor: t.background }}>
+        {renderThemeCard({ item })}
+      </View>
+    );
+  }}
+  keyExtractor={([key]) => key}
+  showsHorizontalScrollIndicator={false}
+  onScroll={(e) => {
+    const index = Math.round(e.nativeEvent.contentOffset.x / width);
+    setCurrentIndex(index);
+  }}
+/>
+
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

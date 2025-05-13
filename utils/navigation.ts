@@ -8,8 +8,9 @@ export type RootStackParamList = {
     CreateBossScreen: undefined;
     BossMapScreen: undefined;
     ClassQuestScreen: undefined;
-    QuestHistoryScreen: undefined;
+    ActivityHistoryScreen: undefined;
     QuestJournalScreen: undefined;
-    BossQuestScreen: {refreshed?: boolean};
+    BossQuestScreen: undefined;
+    LeaderboardScreen: undefined;
   };
   

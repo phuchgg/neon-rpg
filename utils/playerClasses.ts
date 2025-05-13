@@ -1,4 +1,4 @@
-export const CLASS_SWITCH_COST = 5000;
+export const CLASS_SWITCH_COST = 50;
 
 export const playerClasses = [
     {

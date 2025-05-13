@@ -28,7 +28,8 @@
     "react-native-reanimated": "~3.17.4",
     "react-native-svg": "15.11.2",
     "react-native-uuid": "^2.0.3",
-    "react-navigation": "^5.0.0"
+    "react-navigation": "^5.0.0",
+    "tiny-emitter": "^2.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

@@ -20,40 +20,16 @@ import { useFocusEffect } from '@react-navigation/native';
 import initialBosses from '../utils/initialBosses.json'; // Make sure this path is correct!
 import SwipeToDeleteTaskRow from '../contexts/SwipeToDeleteTaskRow'; // adjust path if needed
 import { XPManager } from '../utils/XPManager';
-
+import eventBus from '../utils/EventBus';
+import { updateQuestProgress } from '../utils/updateQuestProgress';
+import { simulateDailyProgress } from '../utils/simulateProgress';
+import { initialSimPlayers } from '../utils/simulatedPlayers';
 
 const getXpForLevel = (level: number): number => {
   return 100 + (level - 1) * 20; // Level 1 = 100, Level 2 = 120, etc.
 };
 
-export async function updateQuestProgress(type: 'task' | 'boss') {
-  const json = await AsyncStorage.getItem('quests');
-  if (!json) return;
-
-  let quests: Quest[] = JSON.parse(json);
-  let updated = false;
-
-  quests = quests.map((quest) => {
-    if (quest.type !== type || quest.isComplete) return quest;
-
-    const current = quest.condition.current + 1;
-    const progress = Math.min((current / quest.condition.target) * 100, 100);
-    const isComplete = current >= quest.condition.target;
-    updated = true;
-    return {
-      ...quest,
-      condition: { ...quest.condition, current },
-      progress, // this line is critical
-      isComplete,
-
-    };
-
-  });
-
-  if (updated) {
-    await AsyncStorage.setItem('quests', JSON.stringify(quests));
-  }
-}
+const USER_MONTHLY_PROGRESS_KEY = 'userMonthlyProgress';
 
 export default function TaskScreen() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -76,12 +52,36 @@ export default function TaskScreen() {
   const [showMapReset, setShowMapReset] = useState(false);
   const initialBossesTyped: Boss[] = initialBosses as Boss[];
   const [showDeleteNotif, setShowDeleteNotif] = useState(false);
+  const [equippedHud, setEquippedHud] = useState<string | null>(null);
+
+  const handleXpGain = async (amount: number) => {
+    await XPManager.addXp(amount);
+    const updatedXp = await XPManager.getXp();
+    const updatedLevel = await XPManager.getLevel();
+  
+    setXp(updatedXp);
+    setLevel(updatedLevel);
+
+     // Cộng dồn XP tháng
+    await updateUserMonthlyProgress(0, 0, amount);
+  
+    if (amount > 0) triggerXpAnimation(amount);
+  
+    if (updatedLevel > level) {
+      setShowLottie(true);
+      setTimeout(() => {
+        setShowLottie(false);
+        Alert.alert('Level Up!', `You're now Level ${updatedLevel}! 🎉`);
+      }, 2000);
+    }
+  };
+  
 
 
 
   const clearAllGameData = async () => {
     await AsyncStorage.multiRemove([
-      'rpgSaveData',      // if you use the consolidated save key
+      'rpgSaveData',
       'xp',
       'level',
       'tasks',
@@ -93,6 +93,10 @@ export default function TaskScreen() {
       'playerClass',
       'unlockedRewards',
       'equippedCosmetics',
+      'questHistory',
+      'questStreak',
+      'lastQuestDate',
+      'edgewalkerUnlocked',
     ]);
     setEquippedBadge(null);
     Alert.alert('🗑️ Data Cleared', 'All saved progress has been wiped.');
@@ -145,28 +149,16 @@ export default function TaskScreen() {
     const json = await AsyncStorage.getItem('bosses');
     if (json) setBosses(JSON.parse(json));
   };
+  
 
   useFocusEffect(
     useCallback(() => {
       loadBosses();
       loadTasks();
       loadProgress();
+      simulateDailyProgress();
     }, [])
   );
-
-
-  useEffect(() => {
-    const loadCosmetics = async () => {
-      const cosmetics = await CosmeticManager.getEquippedCosmetics();
-      if (cosmetics.badge) setEquippedBadge(cosmetics.badge);
-
-    };
-    loadCosmetics();
-
-  }, []);
-
-
-
 
   const loadTasks = async () => {
     const json = await AsyncStorage.getItem('tasks');
@@ -187,7 +179,54 @@ export default function TaskScreen() {
     await AsyncStorage.setItem('tasks', JSON.stringify(updated));
   };
 
+  const updateUserMonthlyProgress = async (tasks = 0, bosses = 0, xpGain = 0) => {
+    const stored = await AsyncStorage.getItem(USER_MONTHLY_PROGRESS_KEY);
+    const progress = stored ? JSON.parse(stored) : { tasksCompleted: 0, bossesDefeated: 0, monthlyXp: 0 };
+  
+    const updated = {
+      tasksCompleted: progress.tasksCompleted + tasks,
+      bossesDefeated: progress.bossesDefeated + bosses,
+      monthlyXp: progress.monthlyXp + xpGain,
+    };
+  
+    await AsyncStorage.setItem(USER_MONTHLY_PROGRESS_KEY, JSON.stringify(updated));
+  };
+  
+  
+
+  useEffect(() => {
+    const initializeSimPlayers = async () => {
+      const existing = await AsyncStorage.getItem('simPlayers');
+      if (!existing) {
+        await AsyncStorage.setItem('simPlayers', JSON.stringify(initialSimPlayers));
+        console.log('📦 SimPlayers initialized');
+      }
+    };
+    initializeSimPlayers();
+  }, []);
+  
+
+  // ✅ Cosmetics listener: should mount once
+  useEffect(() => {
+    const reloadCosmetics = async () => {
+      const cosmetics = await CosmeticManager.getEquippedCosmetics();
+      setEquippedBadge(cosmetics.badge ?? null); // ép undefined thành null
+      setEquippedHud(cosmetics.hud ?? null);
+    };
+
+    eventBus.on('cosmeticUpdated', reloadCosmetics);
+
+    return () => {
+      eventBus.off('cosmeticUpdated', reloadCosmetics);
+    };
+  }, []);
+
+
   const addTask = () => {
+    if (!newTask.trim()) {
+      Alert.alert('⚠️ Oops!', 'Task name cannot be empty.');
+      return;
+    }
     const task: Task = {
       id: uuid.v4().toString(),
       title: newTask.trim(),
@@ -220,6 +259,13 @@ export default function TaskScreen() {
       setXpAnimationRunning(false);
     });
   };
+  const isBossUnlocked = (boss: Boss, allBosses: Boss[]): boolean => {
+    if (!boss.unlockAfter || boss.unlockAfter.length === 0) return true;
+
+    return boss.unlockAfter.every((depId) =>
+      allBosses.find((b) => b.id === depId && b.isDefeated)
+    );
+  };
 
 
   const updateBossProgress = async (bossId: string, increment: number = 10) => {
@@ -231,25 +277,24 @@ export default function TaskScreen() {
       if (b.id === bossId) {
         const damagePercent = tierDamagePercentMap[b.tier] || 1; // ✅ Boss takes 1% damage per task completion
 
-        const damage = Math.ceil(b.totalXp * (damagePercent / 100));
+        const damage = b.totalXp * (damagePercent / 100);
         const newXpRemaining = Math.max(0, b.xpRemaining - damage);
         const newProgress = Math.min(100, ((b.totalXp - newXpRemaining) / b.totalXp) * 100);
         const defeated = newXpRemaining <= 0;
+        const fixedProgress = parseFloat(newProgress.toFixed(2));
 
 
         if (defeated && !b.isDefeated) {
           setShowBossVictory(true);
           await updateQuestProgress('boss');
+          await handleXpGain(50);
+        
           setTimeout(() => setShowBossVictory(false), 1000);
-
-          await XPManager.addXp(50);
-          const updatedXp = await XPManager.getXp();
-          const updatedLevel = await XPManager.getLevel();
-          setXp(updatedXp);
-          setLevel(updatedLevel);
-
           Alert.alert('👑 Boss Defeated!', `"${b.title}" has been conquered! +50 XP`);
+          await updateUserMonthlyProgress(0, 1);
         }
+        
+        
         const defeatedCount = bosses.filter((b) => b.isDefeated).length + 1; // +1 includes current defeat
         console.log('💥 Total Defeated Bosses:', defeatedCount);
 
@@ -298,54 +343,36 @@ export default function TaskScreen() {
       const playerClass = await AsyncStorage.getItem('playerClass');
       const baseXp = 10;
       const bonusAmount = applyClassBonus(task, baseXp, playerClass);
-    
-      await XPManager.addXp(bonusAmount);
-      const updatedXp = await XPManager.getXp();
-      const updatedLevel = await XPManager.getLevel();
-      setXp(updatedXp);
-      setLevel(updatedLevel);
-    
+
+      await handleXpGain(bonusAmount);
+
       const today = new Date().toISOString().split('T')[0];
       const lastDate = await AsyncStorage.getItem('lastActiveDate');
       const storedStreak = await AsyncStorage.getItem('streakCount');
       const streakValue = storedStreak ? parseInt(storedStreak) : 0;
       await updateQuestProgress('task');
-    
+      await updateUserMonthlyProgress(1, 0);
+
       if (lastDate !== today) {
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
         let updatedStreak = 1;
-    
+
         if (lastDate === yesterday) {
           updatedStreak = streakValue + 1;
         }
         setStreak(updatedStreak);
         await AsyncStorage.setItem('streakCount', updatedStreak.toString());
         await AsyncStorage.setItem('lastActiveDate', today);
-    
+
         if (updatedStreak === 3) {
-          await XPManager.addXp(50);
-          const updatedXp = await XPManager.getXp();
-          const updatedLevel = await XPManager.getLevel();
-          setXp(updatedXp);
-          setLevel(updatedLevel);
+          await handleXpGain(50);
           setShowStreakBonus(true);
           setTimeout(() => setShowStreakBonus(false), 1000);
         }
-    
+
         if (updatedStreak === 7) {
           Alert.alert('🔥 Badge Unlocked!', 'You earned a glowing streak badge! (Future quest)');
         }
-      }
-      if (updatedLevel > level) {
-        setShowLottie(true);
-        setTimeout(() => {
-          setShowLottie(false);
-          Alert.alert('Level Up!', `You're now Level ${updatedLevel}! 🎉`);
-        }, 2000);
-      }
-
-      if (bonusAmount > 0) {
-        triggerXpAnimation(bonusAmount);
       }
     }
 
@@ -450,7 +477,7 @@ export default function TaskScreen() {
         <TouchableOpacity onPress={() => navigation.navigate('BossMapScreen')} style={styles.navButton}>
           <Text style={styles.navButtonText}>🗺️ Boss Map</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity onPress={() => navigation.navigate('RewardStoreScreen')} style={styles.navButton}>
           <Text style={styles.navButtonText}>🏪 Reward Store</Text>
         </TouchableOpacity>
@@ -459,17 +486,18 @@ export default function TaskScreen() {
         </TouchableOpacity>
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-      <TouchableOpacity onPress={() => navigation.navigate('QuestJournalScreen')} style={styles.navButton}>
-  <Text style={styles.navButtonText}>📔 Quest Journal</Text>
-</TouchableOpacity>
-<TouchableOpacity onPress={() => navigation.navigate('QuestHistoryScreen')} style={styles.navButton}>
-  <Text style={styles.navButtonText}>📜 History</Text>
-</TouchableOpacity>
-<TouchableOpacity onPress={() => navigation.navigate('ClassQuestScreen')} style={styles.navButton}>
-  <Text style={styles.navButtonText}>🧑‍💼 Class Quests</Text>
-</TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('QuestJournalScreen')} style={styles.navButton}>
+          <Text style={styles.navButtonText}>📔 Quest Journal</Text>
+        </TouchableOpacity>
 
-</View>
+        <TouchableOpacity onPress={() => navigation.navigate('ActivityHistoryScreen')} style={styles.navButton}>
+          <Text style={styles.navButtonText}>📜 History</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('ClassQuestScreen')} style={styles.navButton}>
+          <Text style={styles.navButtonText}>🧑‍💼 Class Quests</Text>
+        </TouchableOpacity>
+
+      </View>
 
 
 
@@ -492,7 +520,7 @@ export default function TaskScreen() {
         <Picker.Item label="🔓 No Boss" value="" />
 
         {bosses
-          .filter((boss) => !boss.isDefeated)
+          .filter((boss) => !boss.isDefeated && isBossUnlocked(boss, bosses))
           .sort((a, b) => a.title.localeCompare(b.title))
           .map((boss) => (
             <Picker.Item
@@ -501,6 +529,7 @@ export default function TaskScreen() {
               value={boss.id}
             />
           ))}
+
       </Picker>
 
       <FlatList
@@ -520,8 +549,14 @@ export default function TaskScreen() {
           />
         )}
       />
-
-
+      {equippedHud && (
+        <View style={{
+          position: 'absolute', top: 70, right: 20, backgroundColor: '#1a1a2e', padding: 8,
+          borderRadius: 30, borderColor: '#00f9ff', borderWidth: 1, zIndex: 10
+        }}>
+          <Text style={{ fontSize: 20, color: '#fff' }}>{equippedHud === 'hud_neon' ? '🖥️' : '🧬'}</Text>
+        </View>
+      )}
 
       {showDeleteNotif && (
         <View style={styles.snackbar}>
@@ -529,13 +564,27 @@ export default function TaskScreen() {
         </View>
       )}
 
-      <QuestTracker />
-      {__DEV__ && (
-        <TouchableOpacity onPress={clearAllGameData} style={styles.clearButton}>
-          <Text style={styles.clearButtonText}>🗑️ Clear All Data</Text>
-        </TouchableOpacity>
-      )}
-
+      {/* Nút Leaderboard 🏅 */}
+    <TouchableOpacity
+      style={{
+        position: 'absolute',
+        bottom: 30,
+        right: 20,
+        backgroundColor: '#00f9ff22',
+        padding: 12,
+        borderRadius: 30,
+        borderWidth: 1,
+        borderColor: '#00f9ff',
+        shadowColor: '#00f9ff',
+        shadowOpacity: 0.6,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+        zIndex: 100,
+      }}
+      onPress={() => navigation.navigate('LeaderboardScreen')}
+    >
+      <Text style={{ fontSize: 20, color: '#00f9ff' }}>🏅</Text>
+    </TouchableOpacity>
     </View>
 
   );
@@ -647,27 +696,27 @@ const makeStyles = (theme: typeof themes.default) =>
       color: '#fff',
     },
     addButton: {
-      backgroundColor: '#00f9ff33',
+      backgroundColor: `${theme.accent}22`,
       padding: 10,
       borderRadius: 8,
       marginLeft: 8,
       justifyContent: 'center',
     },
     addButtonText: {
-      color: '#00f9ff',
+      color: theme.accent,
       fontWeight: '600',
     },
     navButton: {
-      backgroundColor: '#1a1a2e',
+      backgroundColor: theme.background,
       paddingVertical: 8,
       paddingHorizontal: 12,
       borderRadius: 10,
       borderWidth: 1,
-      borderColor: '#00f9ff',
+      borderColor: theme.accent,
       marginHorizontal: 4,
     },
     navButtonText: {
-      color: '#00f9ff',
+      color: theme.accent,
       fontWeight: 'bold',
       fontSize: 12,
     },
@@ -743,6 +792,25 @@ const makeStyles = (theme: typeof themes.default) =>
     swipeDeleteText: {
       color: '#fff',
       fontWeight: 'bold',
+    },
+    questProgressBox: {
+      marginBottom: 12,
+      padding: 10,
+      backgroundColor: '#1a1a2e',
+      borderRadius: 10,
+      borderColor: '#00f9ff55',
+      borderWidth: 1,
+    },
+    questProgressLabel: {
+      color: '#fff',
+      marginBottom: 6,
+      fontWeight: '600',
+    },
+    subheading: {
+      color: '#00f9ff',
+      fontSize: 16,
+      fontWeight: 'bold',
+      marginBottom: 10,
     },
 
   });

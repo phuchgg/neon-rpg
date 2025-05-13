@@ -1,22 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  Alert,
-  TouchableOpacity,
-} from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, FlatList, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../utils/navigation';
 import { useTheme } from '../contexts/ThemeContext';
-import { themes } from '../utils/themes';
 import { rewards } from '../utils/rewards';
 import { CosmeticManager } from '../utils/CosmeticManager';
+import { useFocusEffect } from '@react-navigation/native';
+import eventBus from '../utils/EventBus';
 
-const themePreviewMap: Record<string, { colors: string[] }> = {
+const themePreviewMap = {
   neon_theme: { colors: ['#001b0f', '#00ffcc', '#39ff14'] },
   fire_red: { colors: ['#1a0000', '#ffe0e0', '#ff1a1a'] },
   nightwave: { colors: ['#0a0f29', '#9cd8ff', '#4f9bff'] },
@@ -42,132 +36,188 @@ const ThemePreviewBar = ({ colors }: { colors: string[] }) => (
 );
 
 export default function RewardStoreScreen() {
-  const [xp, setXp] = useState(0);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { setThemeByKey, themeKey, theme } = useTheme();
   const [unlocked, setUnlocked] = useState<string[]>([]);
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'RewardStoreScreen'>>();
-  const { setThemeByKey, themeKey } = useTheme();
   const [totalXpBank, setTotalXpBank] = useState(0);
-
-  useEffect(() => {
-    const load = async () => {
-      const savedTotalXp = await AsyncStorage.getItem('totalXpBank');
-      if (savedTotalXp) setTotalXpBank(parseInt(savedTotalXp));
+  const [equippedBadge, setEquippedBadge] = useState<string | undefined>(undefined);
+  const [equippedHud, setEquippedHud] = useState<string | null>(null);
+  const addHistory = async (item: { date: string; type: 'class' | 'quest' | 'boss' | 'reward'; description: string; details?: any }) => {
+    const existing = JSON.parse(await AsyncStorage.getItem('activityHistory') || '[]');
+    existing.push(item);
+    await AsyncStorage.setItem('activityHistory', JSON.stringify(existing));
+  };
   
-      const savedXp = await AsyncStorage.getItem('xp');
-      const savedRewards = await AsyncStorage.getItem('unlockedRewards');
-      if (savedXp) setXp(parseInt(savedXp));
-      if (savedRewards) setUnlocked(JSON.parse(savedRewards));
+  const loadData = async () => {
+    const savedTotalXp = await AsyncStorage.getItem('totalXp');
+    const savedRewards = await AsyncStorage.getItem('unlockedRewards');
+    const cosmetics = await CosmeticManager.getEquippedCosmetics();
+    const streak = parseInt(await AsyncStorage.getItem('questStreak') ?? '0');
   
-      const streak = parseInt(await AsyncStorage.getItem('questStreak') ?? '0');
-      const updated = [...(savedRewards ? JSON.parse(savedRewards) : [])];
+    setTotalXpBank(savedTotalXp ? parseInt(savedTotalXp) : 0);
+    setUnlocked(savedRewards ? JSON.parse(savedRewards) : []);
+    setEquippedBadge(cosmetics.badge);
+    setEquippedHud(cosmetics.hud ?? null);
   
-      if (streak >= 7 && !updated.includes('badge_glitch')) {
-        updated.push('badge_glitch');
-        await AsyncStorage.setItem('unlockedRewards', JSON.stringify(updated));
-        Alert.alert('🎖️ Badge Unlocked!', 'You earned the Glitch Badge for your 7-day quest streak!');
-      }
-  
+    if (streak >= 7 && !(savedRewards?.includes('badge_glitch'))) {
+      const updated = [...JSON.parse(savedRewards || '[]'), 'badge_glitch'];
+      await AsyncStorage.setItem('unlockedRewards', JSON.stringify(updated));
       setUnlocked(updated);
-    };
-    load();
-  }, []);
+      // ✅ Add to history
+      await addHistory({
+        date: new Date().toISOString(),
+        type: 'reward',
+        description: `Unlocked badge via streak: Glitch Badge`,
+        details: { badgeId: 'badge_glitch' },
+      });
+      Alert.alert('🎖️ Badge Unlocked!', 'You earned the Glitch Badge for your 7-day quest streak!');
+    }
+  };
+  
 
-  const confirmUnlock = (rewardId: string, cost: number) => {
-    Alert.alert(
-      'Unlock Reward?',
-      `This will cost ${cost} XP. Are you sure?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Unlock', onPress: () => handleUnlock(rewardId, cost) },
-      ],
-      { cancelable: true }
-    );
+  const handleEquipTheme = async (themeId: string) => {
+    await setThemeByKey(themeId);
+    await addHistory({
+      date: new Date().toISOString(),
+      type: 'reward',
+      description: `Equipped theme: ${themeId}`,
+      details: { themeId },
+    });
+  
+    Alert.alert('🎨 Theme Equipped!', `${themeId} is now active.`);
   };
 
+  const handleEquipHud = async (hudId: string) => {
+    await CosmeticManager.setEquippedHud(hudId);
+    eventBus.emit('cosmeticUpdated');
+    setEquippedHud(hudId);
+  
+    await addHistory({
+      date: new Date().toISOString(),
+      type: 'reward',
+      description: `Equipped HUD: ${hudId}`,
+      details: { hudId },
+    });
+  
+    Alert.alert('🖥️ HUD Equipped!', `${hudId} is now active.`);
+  };
+
+  useFocusEffect(useCallback(() => { loadData(); }, []));
+
   const handleUnlock = async (rewardId: string, cost: number) => {
+    if (rewardId === 'badge_glitch') {
+      Alert.alert('Glitch Badge', 'This badge is unlocked via streaks, not purchasable.');
+      return;
+    }
+  
     if (unlocked.includes(rewardId)) {
       Alert.alert('Already Unlocked', 'You already own this reward.');
       return;
     }
   
     if (totalXpBank < cost) {
-      const xpShort = cost - totalXpBank;
-      Alert.alert('Not Enough XP', `You need ${xpShort} more XP to unlock this reward.`);
+      Alert.alert('Not Enough XP', `You need ${cost - totalXpBank} more XP to unlock this reward.`);
       return;
     }
   
     const updatedRewards = [...unlocked, rewardId];
-    const newTotalXpBank = totalXpBank - cost;
-  
-    setUnlocked(updatedRewards);
-    setTotalXpBank(newTotalXpBank);
-  
     await AsyncStorage.setItem('unlockedRewards', JSON.stringify(updatedRewards));
-    await AsyncStorage.setItem('totalXpBank', newTotalXpBank.toString());
+    setUnlocked(updatedRewards);
   
     const reward = rewards.find((r) => r.id === rewardId);
-    if (reward?.type === 'badge') {
-      await CosmeticManager.setEquippedBadge(rewardId);
-    }
-    if (reward?.type === 'hud') {
-      await CosmeticManager.setEquippedHud(rewardId);
+  
+    // ✅ Save to history
+    await addHistory({
+      date: new Date().toISOString(),
+      type: 'reward',
+      description: `Unlocked reward: ${reward?.name || rewardId}`,
+      details: { rewardId, cost },
+    });
+  
+    if (reward?.type === 'badge') await CosmeticManager.setEquippedBadge(rewardId);
+    if (reward?.type === 'hud') await CosmeticManager.setEquippedHud(rewardId);
+  
+    const allowedThemes = ['default', 'neon_theme', 'fire_red', 'nightwave', 'ice_pulse', 'synthcore'] as const;
+    if (allowedThemes.includes(rewardId as typeof allowedThemes[number])) {
+      await setThemeByKey(rewardId as typeof allowedThemes[number]);
     }
   
-    if (rewardId in themes) {
-      await setThemeByKey(rewardId as keyof typeof themes);
-    }
+    if (reward?.type === 'badge') setEquippedBadge(rewardId);
   
     Alert.alert('🎁 Unlocked!', `You've unlocked: ${rewardId}`);
   };
   
 
-  const handleEquip = async (rewardId: string) => {
-    await setThemeByKey(rewardId as keyof typeof themes);
-    Alert.alert('🎨 Theme Equipped', `${rewardId} is now active.`);
+  const handleEquipBadge = async (badgeId: string) => {
+    await CosmeticManager.setEquippedBadge(badgeId);
+    eventBus.emit('cosmeticUpdated');
+    setEquippedBadge(badgeId);
+  
+    await addHistory({
+      date: new Date().toISOString(),
+      type: 'reward',
+      description: `Equipped badge: ${badgeId}`,
+      details: { badgeId },
+    });
+  
+    Alert.alert('🎖️ Badge Equipped!', `${badgeId} is now active.`);
   };
+  
 
-  const renderItem = ({ item }: { item: typeof rewards[0] }) => {
+  const renderItem = ({ item }) => {
     const isUnlocked = unlocked.includes(item.id);
     const isTheme = item.type === 'theme';
+    const isBadge = item.type === 'badge';
     const isActiveTheme = item.id === themeKey;
+    const isActiveBadge = item.id === equippedBadge;
+    const isActiveHud = item.id === equippedHud;
 
     return (
-      <View style={[styles.card, isUnlocked && styles.cardUnlocked]}>
-        <Text style={styles.rewardName}>{item.name}</Text>
-
-        {themePreviewMap[item.id] && (
-          <ThemePreviewBar colors={themePreviewMap[item.id].colors} />
-        )}
-
-        <Text style={styles.cost}>
-          {isUnlocked ? '✅ Unlocked' : `🧬 Cost: ${item.cost} XP`}
+      <View style={[styles.card(theme), isUnlocked && styles.cardUnlocked]}>
+        <Text style={[styles.rewardName, { color: theme.text }]}>{item.name}</Text>
+        {themePreviewMap[item.id] && <ThemePreviewBar colors={themePreviewMap[item.id].colors} />}
+        <Text style={[styles.cost, { color: theme.text }]}>
+          {isUnlocked
+            ? '✅ Unlocked'
+            : item.id === 'badge_glitch'
+              ? '🔒 Unlock via 7-day Streak'
+              : `🧬 Requires ${item.cost} Lifetime XP`}
         </Text>
 
-        {!isUnlocked && (
-          <TouchableOpacity onPress={() => confirmUnlock(item.id, item.cost)}>
-            <Text style={styles.buttonText}>Unlock</Text>
+        {!isUnlocked && item.id !== 'badge_glitch' && (
+          <TouchableOpacity onPress={() => handleUnlock(item.id, item.cost)}>
+            <Text style={[styles.buttonText, { color: theme.accent }]}>Unlock</Text>
           </TouchableOpacity>
         )}
 
-        {isUnlocked && isTheme && (
-          isActiveTheme ? (
-            <View style={styles.equipButton}>
-              <Text style={[styles.buttonText, { color: '#4caf50' }]}>✅ Equipped</Text>
-            </View>
-          ) : (
-            <TouchableOpacity onPress={() => handleEquip(item.id)} style={styles.equipButton}>
-              <Text style={styles.buttonText}>🎨 Equip Theme</Text>
-            </TouchableOpacity>
-          )
+{isUnlocked && isTheme && (
+  isActiveTheme
+    ? <Text style={[styles.buttonText, { color: '#4caf50' }]}>✅ Equipped</Text>
+    : <TouchableOpacity onPress={() => handleEquipTheme(item.id)}><Text style={[styles.buttonText, { color: theme.accent }]}>🎨 Equip</Text></TouchableOpacity>
+)}
+
+
+        {isUnlocked && isBadge && (
+          isActiveBadge
+            ? <Text style={[styles.buttonText, { color: '#4caf50' }]}>✅ Equipped</Text>
+            : <TouchableOpacity onPress={() => handleEquipBadge(item.id)}><Text style={[styles.buttonText, { color: theme.accent }]}>🎖️ Equip Badge</Text></TouchableOpacity>
+        )}
+
+        {isUnlocked && item.type === 'hud' && (
+          isActiveHud
+            ? <Text style={[styles.buttonText, { color: '#4caf50' }]}>✅ Equipped</Text>
+            : <TouchableOpacity onPress={() => handleEquipHud(item.id)}>
+                <Text style={[styles.buttonText, { color: theme.accent }]}>🖥️ Equip HUD</Text>
+              </TouchableOpacity>
         )}
       </View>
     );
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>🎁 Reward Store</Text>
-      <Text style={styles.xp}>Total XP Bank: {totalXpBank}</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <Text style={[styles.title, { color: theme.accent }]}>🎁 Reward Store</Text>
+      <Text style={[styles.xp, { color: theme.text }]}>Total Lifetime XP: {totalXpBank}</Text>
       <FlatList
         data={rewards}
         keyExtractor={(item) => item.id}
@@ -175,64 +225,28 @@ export default function RewardStoreScreen() {
         contentContainerStyle={{ paddingBottom: 40 }}
       />
       <TouchableOpacity onPress={() => navigation.navigate('ThemeGalleryScreen')}>
-        <Text style={{ color: '#00f9ff', textAlign: 'center', margin: 14, paddingBottom: 20 }}>
-          🖼️ Browse Full Theme Gallery
-        </Text>
+        <Text style={{ color: theme.accent, textAlign: 'center', margin: 14 }}>🖼️ Browse Full Theme Gallery</Text>
       </TouchableOpacity>
+      
     </View>
+    
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0d0c1d',
-    paddingTop: 60,
-    paddingHorizontal: 20,
-  },
-  title: {
-    fontSize: 24,
-    color: '#00f9ff',
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  xp: {
-    fontSize: 16,
-    color: '#ccc',
-    marginBottom: 20,
-  },
-  card: {
-    backgroundColor: '#1a1a2e',
+  container: { flex: 1, paddingTop: 60, paddingHorizontal: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
+  xp: { fontSize: 16, marginBottom: 20 },
+  card: (theme) => ({
+    backgroundColor: theme.background,
     padding: 16,
     borderRadius: 10,
     marginBottom: 12,
-    borderColor: '#00f9ff44',
+    borderColor: `${theme.accent}44`,
     borderWidth: 1,
-  },
-  cardUnlocked: {
-    borderColor: '#4caf50',
-  },
-  rewardName: {
-    color: '#fff',
-    fontSize: 16,
-    marginBottom: 6,
-  },
-  cost: {
-    color: '#aaa',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  buttonText: {
-    color: '#00f9ff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  equipButton: {
-    backgroundColor: '#00f9ff22',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    marginTop: 6,
-  },
+  }),
+  cardUnlocked: { borderColor: '#4caf50' },
+  rewardName: { fontSize: 16, marginBottom: 6 },
+  cost: { fontSize: 14, marginBottom: 8 },
+  buttonText: { fontSize: 14, fontWeight: 'bold' },
 });

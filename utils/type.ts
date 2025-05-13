@@ -38,3 +38,10 @@ export type Quest = {
   rewardXp: number;
 };
 
+export interface Npc {
+  avatar: string;
+  name: string;
+  quote: string;
+}
+
+export type ClassType = 'ghostrunner' | 'netcrasher' | 'synthmancer';

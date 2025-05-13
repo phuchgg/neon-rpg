@@ -18,6 +18,9 @@ import { Audio } from 'expo-av';
 import Svg, { Line } from 'react-native-svg';
 import { CosmeticManager } from '../utils/CosmeticManager';
 import { useCallback } from 'react';
+import { FlatList } from 'react-native';
+
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -63,14 +66,14 @@ export default function BossMapScreen() {
         const json = await AsyncStorage.getItem('bosses');
         const storedZone = await AsyncStorage.getItem('lastUnlockedZone');
         let lastUnlockedZone = parseInt(storedZone ?? '0');
-  
+
         if (json) {
           const loadedBosses: Boss[] = JSON.parse(json);
           setBosses(loadedBosses);
-  
+
           const defeated = loadedBosses.filter((b) => b.isDefeated).length;
           const currentZone = defeated < 3 ? 1 : defeated < 6 ? 2 : 3;
-  
+
           if (currentZone > lastUnlockedZone) {
             setShowZoneUnlock(true);
             setShowZoneBanner(true);
@@ -83,28 +86,35 @@ export default function BossMapScreen() {
           }
         }
       };
-  
+
       const loadCosmetics = async () => {
         const cosmetics = await CosmeticManager.getEquippedCosmetics();
         if (cosmetics.hud) setEquippedHud(cosmetics.hud);
       };
-  
+
       load();
       loadCosmetics();
     }, [])
   );
-  
+
 
   const defeatedCount = bosses.filter((b) => b.isDefeated).length;
   let currentMap;
 
-  if (defeatedCount < 3) {
-    currentMap = require('../assets/maps/cyber_map_bg.png');
-  } else if (defeatedCount < 6) {
-    currentMap = require('../assets/maps/cyber_map_bg_2.png');
-  } else {
-    currentMap = require('../assets/maps/cyber_map_bg_final.png');
+  const cycleIndex = Math.floor(defeatedCount / 8) % 3;
+
+  switch (cycleIndex) {
+    case 0:
+      currentMap = require('../assets/maps/cyber_map_bg.png');
+      break;
+    case 1:
+      currentMap = require('../assets/maps/cyber_map_bg_2.png');
+      break;
+    case 2:
+      currentMap = require('../assets/maps/cyber_map_bg_final.png');
+      break;
   }
+  
 
   const bossPositions: Record<string, { x: number; y: number }> = {};
   bosses.forEach((boss, index) => {
@@ -114,22 +124,28 @@ export default function BossMapScreen() {
   });
 
   return (
-    <ImageBackground source={currentMap} style={styles.map} resizeMode="cover">
-      
+    <ImageBackground source={currentMap} style={styles.map} resizeMode="stretch">
+
       {/* Add Boss Button */}
       <TouchableOpacity
-        style={styles.addButton}
+        style={[
+          styles.addButton,
+          { backgroundColor: `${theme.background}cc`, borderColor: theme.accent },
+        ]}
         onPress={() => navigation.navigate('CreateBossScreen')}
       >
-        <Text style={styles.addButtonText}>+ Add Boss</Text>
+        <Text style={{ color: theme.accent, fontWeight: '600' }}>+ Add Boss</Text>
       </TouchableOpacity>
 
       {/* Back to TaskScreen */}
       <TouchableOpacity
-        style={styles.backButton}
+        style={[
+          styles.backButton,
+          { backgroundColor: `${theme.background}cc`, borderColor: `${theme.accent}44` },
+        ]}
         onPress={() => navigation.navigate('TaskScreen')}
       >
-        <Text style={styles.backButtonText}>← Back</Text>
+        <Text style={{ color: theme.text }}>← Back</Text>
       </TouchableOpacity>
 
       {equippedHud === 'hud_nightwave' && <View style={styles.hudOverlay} />}
@@ -189,8 +205,8 @@ export default function BossMapScreen() {
                   backgroundColor: boss.isDefeated
                     ? '#4caf50'
                     : isLocked
-                    ? '#555'
-                    : theme.accent,
+                      ? '#555'
+                      : theme.accent,
                   opacity: isLocked ? 0.6 : 1,
                 },
               ]}
@@ -212,11 +228,16 @@ export default function BossMapScreen() {
         />
       )}
     </ImageBackground>
+    
   );
 }
 
 const styles = StyleSheet.create({
-  map: { flex: 1, width, height },
+  map: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
   bossNode: {
     position: 'absolute',
     padding: 10,

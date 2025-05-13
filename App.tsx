@@ -15,8 +15,9 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import ThemeGalleryScreen from './screens/ThemeGalleryScreen';
 import BossMapScreen from './screens/BossMapScreen';
 import ClassQuestScreen from './screens/ClassQuestScreen';
-import QuestHistoryScreen from './screens/QuestHistoryScreen';
+import ActivityHistoryScreen from './screens/ActivityHistoryScreen';
 import QuestJournalScreen from './screens/QuestJournalScreen';
+import LeaderboardScreen from './screens/LeaderboardScreen'
 
 const Stack = createNativeStackNavigator();
 
@@ -28,16 +29,17 @@ export default function App() {
           <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="ClassSelectScreen" component={ClassSelectScreen} />
             <Stack.Screen name="TaskScreen" component={TaskScreen} />
+            <Stack.Screen name="RewardStoreScreen" component={RewardStoreScreen} />
+            <Stack.Screen name="RoleShopScreen" component={RoleShopScreen} />
             <Stack.Screen name="BossMapScreen" component={BossMapScreen} />
             <Stack.Screen name="BossDetailScreen" component={BossDetailScreen} />
             <Stack.Screen name="BossQuestScreen" component={BossQuestScreen} />
             <Stack.Screen name="CreateBossScreen" component={CreateBossScreen} />
-            <Stack.Screen name="RewardStoreScreen" component={RewardStoreScreen} />
-            <Stack.Screen name="RoleShopScreen" component={RoleShopScreen} />
             <Stack.Screen name="ThemeGalleryScreen" component={ThemeGalleryScreen} />
             <Stack.Screen name="QuestJournalScreen" component={QuestJournalScreen} />
-            <Stack.Screen name="QuestHistoryScreen" component={QuestHistoryScreen} />
+            <Stack.Screen name="ActivityHistoryScreen" component={ActivityHistoryScreen} />
             <Stack.Screen name="ClassQuestScreen" component={ClassQuestScreen} />
+            <Stack.Screen name="LeaderboardScreen" component={LeaderboardScreen}/>
           </Stack.Navigator>
         </NavigationContainer>
       </ThemeProvider>

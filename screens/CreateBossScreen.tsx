@@ -14,7 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Picker } from '@react-native-picker/picker';
 import { Boss } from '../utils/type';
 import { RootStackParamList } from '../utils/navigation';
-
+import { useTheme } from '../contexts/ThemeContext';
 
 type CreateBossScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'CreateBossScreen'>;
@@ -26,6 +26,8 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
   const [selectedTier, setSelectedTier] = useState<'mini' | 'elite' | 'mega'>('mini');
   const [bosses, setBosses] = useState<Boss[]>([]);
   const [selectedUnlockIds, setSelectedUnlockIds] = useState<string[]>([]);
+  const { theme } = useTheme();
+  const styles = makeStyles(theme);
 
   useEffect(() => {
     const loadBosses = async () => {
@@ -37,9 +39,7 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
 
   const handleToggleUnlock = (bossId: string) => {
     setSelectedUnlockIds((prev) =>
-      prev.includes(bossId)
-        ? prev.filter((id) => id !== bossId)
-        : [...prev, bossId]
+      prev.includes(bossId) ? prev.filter((id) => id !== bossId) : [...prev, bossId]
     );
   };
 
@@ -48,7 +48,16 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
       Alert.alert('Missing title', 'Please enter a title for your boss quest.');
       return;
     }
-
+  
+    const stored = await AsyncStorage.getItem('bosses');
+    const bosses = stored ? JSON.parse(stored) : [];
+  
+    // ✅ LIMIT CHECK HERE
+    if (bosses.length >= 8) {
+      Alert.alert('⚠️ Limit Reached', 'You can only have up to 8 bosses at a time.');
+      return;
+    }
+  
     const newBoss: Boss = {
       id: uuid.v4().toString(),
       title: title.trim(),
@@ -61,19 +70,14 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
       tier: selectedTier,
       unlockAfter: selectedUnlockIds,
     };
-    
-    
-    
-
-    const stored = await AsyncStorage.getItem('bosses');
-    const bosses = stored ? JSON.parse(stored) : [];
-
+  
     bosses.push(newBoss);
     await AsyncStorage.setItem('bosses', JSON.stringify(bosses));
-
+  
     Alert.alert('Boss Created!', `You've launched "${newBoss.title}".`);
     navigation.navigate('BossQuestScreen', { refreshed: true });
   };
+  
 
   return (
     <ScrollView style={styles.container}>
@@ -112,10 +116,15 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
       {bosses.map((b) => (
         <TouchableOpacity
           key={b.id}
-          style={[styles.unlockItem, selectedUnlockIds.includes(b.id) && styles.unlockItemSelected]}
+          style={[
+            styles.unlockItem,
+            selectedUnlockIds.includes(b.id) && styles.unlockItemSelected,
+          ]}
           onPress={() => handleToggleUnlock(b.id)}
         >
-          <Text style={{ color: '#fff' }}>{`${selectedUnlockIds.includes(b.id) ? '✅' : '⬜️'} ${b.title ?? 'Untitled'}`}</Text>
+          <Text style={{ color: theme.text }}>
+            {`${selectedUnlockIds.includes(b.id) ? '✅' : '⬜️'} ${b.title ?? 'Untitled'}`}
+          </Text>
         </TouchableOpacity>
       ))}
 
@@ -126,62 +135,67 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0d0c1d',
-    padding: 24,
-    paddingTop: 60,
-  },
-  header: {
-    fontSize: 24,
-    color: '#00f9ff',
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  input: {
-    backgroundColor: '#1a1a2e',
-    color: '#fff',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  label: {
-    color: '#ccc',
-    marginBottom: 6,
-    fontWeight: 'bold',
-  },
-  picker: {
-    backgroundColor: '#1a1a2e',
-    color: '#fff',
-    marginBottom: 16,
-  },
-  unlockItem: {
-    padding: 10,
-    backgroundColor: '#1f1f2e',
-    borderRadius: 6,
-    marginBottom: 8,
-  },
-  unlockItemSelected: {
-    backgroundColor: '#00f9ff22',
-  },
-  button: {
-    backgroundColor: '#00f9ff33',
-    borderColor: '#00f9ff',
-    borderWidth: 1,
-    padding: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  buttonText: {
-    color: '#00f9ff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-});
+const makeStyles = (theme: typeof import('../utils/themes').themes.default) => {
+  const accentBg = `${theme.accent}22`;
+  const buttonBg = `${theme.accent}33`;
+
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+      padding: 24,
+      paddingTop: 60,
+    },
+    header: {
+      fontSize: 24,
+      color: theme.accent,
+      fontWeight: 'bold',
+      marginBottom: 20,
+      textAlign: 'center',
+    },
+    input: {
+      backgroundColor: '#1a1a2e',
+      color: theme.text,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 16,
+    },
+    textArea: {
+      height: 100,
+      textAlignVertical: 'top',
+    },
+    label: {
+      color: theme.text,
+      marginBottom: 6,
+      fontWeight: 'bold',
+    },
+    picker: {
+      backgroundColor: '#1a1a2e',
+      color: theme.text,
+      marginBottom: 16,
+    },
+    unlockItem: {
+      padding: 10,
+      backgroundColor: '#1f1f2e',
+      borderRadius: 6,
+      marginBottom: 8,
+    },
+    unlockItemSelected: {
+      backgroundColor: accentBg,
+    },
+    button: {
+      backgroundColor: buttonBg,
+      borderColor: theme.accent,
+      borderWidth: 1,
+      padding: 14,
+      borderRadius: 10,
+      alignItems: 'center',
+      marginTop: 10,
+    },
+    buttonText: {
+      color: theme.accent,
+      fontWeight: '600',
+      fontSize: 16,
+    },
+  });
+};

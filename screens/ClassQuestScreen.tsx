@@ -1,63 +1,91 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 import { dailyClassQuests } from '../utils/classQuests';
 import { useTheme } from '../contexts/ThemeContext';
-import { classes } from '../utils/classes'; // ✅ make sure this is imported
+import { classes } from '../utils/classes';
+import { Npc, ClassType } from '../utils/type';
 
-const getTodayKey = () => new Date().toISOString().split('T')[0];
+const getXpForLevel = (level: number): number => {
+  return 100 + (level - 1) * 20;
+};
 
 export default function ClassQuestScreen() {
-  const [playerClass, setPlayerClass] = useState<string | null>(null);
+  const [playerClass, setPlayerClass] = useState<ClassType | null>(null);
   const [dailyQuest, setDailyQuest] = useState<string | null>(null);
-  const [questCompleted, setQuestCompleted] = useState(false);
-  const [questStreak, setQuestStreak] = useState(0);
-  const [npc, setNpc] = useState<{ name: string; quote: string; avatar: string } | null>(null);
+  const [questCompleted, setQuestCompleted] = useState<boolean>(false);
+  const [questStreak, setQuestStreak] = useState<number>(0);
+  const [npc, setNpc] = useState<Npc | null>(null);
+  const [fakeDateOffset, setFakeDateOffset] = useState<number>(0);
+
   const { theme } = useTheme();
+  const navigation = useNavigation();
 
-  const todayKey = getTodayKey();
+  const getTodayKey = () =>
+    new Date(Date.now() + fakeDateOffset * 86400000).toISOString().split('T')[0];
 
-  useEffect(() => {
-    const loadQuestAndNPC = async () => {
-      const storedClass = await AsyncStorage.getItem('playerClass');
-      if (!storedClass) return;
+  const loadQuestAndNPC = async () => {
+    const todayKey = getTodayKey();
+    const storedClass = await AsyncStorage.getItem('playerClass') as ClassType | null;
+    if (!storedClass) return;
 
-      setPlayerClass(storedClass);
+    setPlayerClass(storedClass);
 
-      const playerClassObj = classes.find((cls) => cls.id === storedClass);
-      if (playerClassObj) setNpc(playerClassObj.npc);
+    const playerClassObj = classes.find((cls) => cls.id === storedClass);
+    if (playerClassObj) setNpc(playerClassObj.npc);
 
-      const storedQuestKey = `classQuest_${playerClass}_${todayKey}`;
-      await AsyncStorage.setItem(`${storedQuestKey}_done`, 'true');
-      const storedQuest = await AsyncStorage.getItem(storedQuestKey);
-      const completed = await AsyncStorage.getItem(`${storedQuestKey}_done`);
-      const savedStreak = await AsyncStorage.getItem('questStreak');
+    const storedQuestKey = `classQuest_${storedClass}_${todayKey}`;
+    const storedQuest = await AsyncStorage.getItem(storedQuestKey);
 
-      if (savedStreak) setQuestStreak(parseInt(savedStreak));
+    const savedStreak = await AsyncStorage.getItem('questStreak');
+    if (savedStreak) setQuestStreak(parseInt(savedStreak));
 
-      if (storedQuest) {
-        setDailyQuest(storedQuest);
-        setQuestCompleted(completed === 'true');
+    const completedKey = `${storedQuestKey}_done`;
+    const completed = await AsyncStorage.getItem(completedKey);
+
+    if (!storedQuest) {
+      const options = dailyClassQuests[storedClass as keyof typeof dailyClassQuests];
+      const random = options[Math.floor(Math.random() * options.length)];
+      await AsyncStorage.setItem(storedQuestKey, random);
+      await AsyncStorage.setItem(completedKey, 'false');
+      setDailyQuest(random);
+      setQuestCompleted(false);
+    } else {
+      setDailyQuest(storedQuest);
+
+      if (completed === null) {
+        await AsyncStorage.setItem(completedKey, 'false');
+        setQuestCompleted(false);
       } else {
-        const options = dailyClassQuests[storedClass as keyof typeof dailyClassQuests];
-        const random = options[Math.floor(Math.random() * options.length)];
-        setDailyQuest(random);
-        await AsyncStorage.setItem(storedQuestKey, random);
+        setQuestCompleted(completed === 'true');
       }
-    };
+    }
+  };
 
-    loadQuestAndNPC();
-  }, []);
+  const handleLevelUp = async () => {
+    let level = parseInt((await AsyncStorage.getItem('level')) ?? '1');
+    let xp = parseInt((await AsyncStorage.getItem('xp')) ?? '0');
+
+    while (xp >= getXpForLevel(level)) {
+      xp -= getXpForLevel(level);
+      level += 1;
+      Alert.alert('🎉 Level Up!', `You reached level ${level}!`);
+    }
+
+    await AsyncStorage.setItem('level', level.toString());
+    await AsyncStorage.setItem('xp', xp.toString());
+  };
 
   const completeQuest = async () => {
-    if (questCompleted) return;
+    if (questCompleted || !playerClass) return;
 
     const today = getTodayKey();
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() + (fakeDateOffset - 1) * 86400000).toISOString().split('T')[0];
 
     const storedQuestKey = `classQuest_${playerClass}_${today}`;
-await AsyncStorage.setItem(`${storedQuestKey}_done`, 'true');
-setQuestCompleted(true);
+    await AsyncStorage.setItem(`${storedQuestKey}_done`, 'true');
+    setQuestCompleted(true);
 
     const lastDate = await AsyncStorage.getItem('lastQuestDate');
     let streak = parseInt((await AsyncStorage.getItem('questStreak')) ?? '0');
@@ -84,10 +112,51 @@ setQuestCompleted(true);
     }
 
     const historyJson = await AsyncStorage.getItem('questHistory');
-const history = historyJson ? JSON.parse(historyJson) : [];
-history.push({ date: today, quest: dailyQuest, class: playerClass });
-await AsyncStorage.setItem('questHistory', JSON.stringify(history));
+    const history = historyJson ? JSON.parse(historyJson) : [];
+    history.push({ date: today, quest: dailyQuest, class: playerClass });
+    await AsyncStorage.setItem('questHistory', JSON.stringify(history));
+
+    await handleLevelUp();
   };
+
+  const simulateNewDay = async () => {
+    const today = getTodayKey();
+    if (!playerClass) return;
+
+    await AsyncStorage.setItem('lastQuestDate', today);
+
+    setDailyQuest(null);
+    setQuestCompleted(false);
+    setFakeDateOffset((prev) => prev + 1);
+  };
+
+  const clearAllGameData = async () => {
+    const allKeys = await AsyncStorage.getAllKeys();
+    const classQuestKeys = allKeys.filter((key) => key.startsWith('classQuest_'));
+
+    await AsyncStorage.multiRemove([
+      'rpgSaveData', 'xp', 'level', 'tasks', 'bosses', 'quests', 'streakCount', 'lastActiveDate',
+      'bossHistory', 'playerClass', 'unlockedRewards', 'equippedCosmetics', 'questHistory',
+      'questStreak', 'lastQuestDate', 'edgewalkerUnlocked', ...classQuestKeys
+    ]);
+
+    setDailyQuest(null);
+    setQuestCompleted(false);
+    setPlayerClass(null);
+    setQuestStreak(0);
+    setNpc(null);
+
+    Alert.alert('🗑️ Data Cleared', 'All saved progress has been wiped.');
+    console.log('🗑️ All AsyncStorage game data cleared!');
+  };
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadQuestAndNPC();
+    });
+    loadQuestAndNPC();
+    return unsubscribe;
+  }, [navigation, fakeDateOffset]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -113,9 +182,23 @@ await AsyncStorage.setItem('questHistory', JSON.stringify(history));
           questCompleted ? styles.buttonDone : { borderColor: theme.accent },
         ]}
       >
-        <Text style={styles.buttonText}>
+        <Text style={[styles.buttonText, { color: theme.accent }]}>
           {questCompleted ? '✅ Completed' : 'Claim Reward'}
         </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={simulateNewDay}
+        style={[styles.button, { borderColor: 'orange', marginTop: 20 }]}
+      >
+        <Text style={[styles.buttonText, { color: 'orange' }]}>⏩ Simulate New Day</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={clearAllGameData}
+        style={[styles.button, { borderColor: 'red', marginTop: 20 }]}
+      >
+        <Text style={[styles.buttonText, { color: 'red' }]}>🗑️ Clear All Game Data</Text>
       </TouchableOpacity>
 
       <View style={{ marginTop: 10 }}>
@@ -144,6 +227,6 @@ const styles = StyleSheet.create({
   },
   questText: { fontSize: 18, color: '#fff', textAlign: 'center' },
   button: { borderWidth: 1, padding: 14, borderRadius: 10, alignItems: 'center', marginTop: 10 },
-  buttonText: { fontSize: 16, color: '#00f9ff', fontWeight: '600' },
+  buttonText: { fontSize: 16, fontWeight: '600' },
   buttonDone: { backgroundColor: '#333', borderColor: '#555' },
 });
