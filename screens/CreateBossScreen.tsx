@@ -107,9 +107,9 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
         onValueChange={(value) => setSelectedTier(value)}
         style={styles.picker}
       >
-        <Picker.Item label="Mini Boss" value="mini" />
-        <Picker.Item label="Elite Boss" value="elite" />
-        <Picker.Item label="Mega Boss" value="mega" />
+        <Picker.Item label="Mini Boss" value="mini" color={theme.text}/>
+        <Picker.Item label="Elite Boss" value="elite" color={theme.text} />
+        <Picker.Item label="Mega Boss" value="mega" color={theme.text}/>
       </Picker>
 
       <Text style={styles.label}>Unlocks After:</Text>

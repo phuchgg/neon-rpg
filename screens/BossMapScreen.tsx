@@ -41,6 +41,7 @@ export default function BossMapScreen() {
   const [showZoneBanner, setShowZoneBanner] = useState(false);
   const [playerClass, setPlayerClass] = useState<string | null>(null);
   const [equippedHud, setEquippedHud] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const playUnlockSound = async () => {
     const { sound } = await Audio.Sound.createAsync(
@@ -63,6 +64,7 @@ export default function BossMapScreen() {
   useFocusEffect(
     useCallback(() => {
       const load = async () => {
+        setLoading(true);
         const json = await AsyncStorage.getItem('bosses');
         const storedZone = await AsyncStorage.getItem('lastUnlockedZone');
         let lastUnlockedZone = parseInt(storedZone ?? '0');
@@ -90,6 +92,7 @@ export default function BossMapScreen() {
       const loadCosmetics = async () => {
         const cosmetics = await CosmeticManager.getEquippedCosmetics();
         if (cosmetics.hud) setEquippedHud(cosmetics.hud);
+        setLoading(false);
       };
 
       load();
@@ -130,11 +133,11 @@ export default function BossMapScreen() {
       <TouchableOpacity
         style={[
           styles.addButton,
-          { backgroundColor: `${theme.background}cc`, borderColor: theme.accent },
+          { backgroundColor: `${theme.background}cc`, borderColor: `${theme.accent}44` },
         ]}
         onPress={() => navigation.navigate('CreateBossScreen')}
       >
-        <Text style={{ color: theme.accent, fontWeight: '600' }}>+ Add Boss</Text>
+        <Text style={{ color: theme.text}}>+ Add Boss</Text>
       </TouchableOpacity>
 
       {/* Back to TaskScreen */}
@@ -278,7 +281,7 @@ const styles = StyleSheet.create({
   },
   addButton: {
     position: 'absolute',
-    top: 40,
+    bottom: 40,
     right: 20,
     backgroundColor: '#00f9ff22',
     paddingHorizontal: 14,
@@ -301,5 +304,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     zIndex: 20,
   },
-  backButtonText: { color: '#fff' },
+  backButtonText: { color: 'white' },
 });

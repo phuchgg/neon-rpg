@@ -16,6 +16,8 @@ const themePreviewMap = {
   nightwave: { colors: ['#0a0f29', '#9cd8ff', '#4f9bff'] },
   ice_pulse: { colors: ['#011f2a', '#b0faff', '#00e0ff'] },
   synthcore: { colors: ['#1b0029', '#ffb6f9', '#ff3cac'] },
+  synth_hood: { colors: ['#1b0029', '#ffb6f9', '#ff3cac'] }, // same as synthcore style
+  hud_nightwave: { colors: ['#0a0f29', '#9cd8ff', '#4f9bff'] }, // same as nightwave style
 };
 
 const ThemePreviewBar = ({ colors }: { colors: string[] }) => (
@@ -48,6 +50,8 @@ export default function RewardStoreScreen() {
     await AsyncStorage.setItem('activityHistory', JSON.stringify(existing));
   };
   
+  const [activeTab, setActiveTab] = useState<'theme' | 'badge' | 'hud'>('theme');
+
   const loadData = async () => {
     const savedTotalXp = await AsyncStorage.getItem('totalXp');
     const savedRewards = await AsyncStorage.getItem('unlockedRewards');
@@ -171,41 +175,48 @@ export default function RewardStoreScreen() {
     const isActiveTheme = item.id === themeKey;
     const isActiveBadge = item.id === equippedBadge;
     const isActiveHud = item.id === equippedHud;
-
+    
     return (
-      <View style={[styles.card(theme), isUnlocked && styles.cardUnlocked]}>
+      <View style={[styles.card(theme), isUnlocked && styles.cardUnlocked(theme)]}>
         <Text style={[styles.rewardName, { color: theme.text }]}>{item.name}</Text>
         {themePreviewMap[item.id] && <ThemePreviewBar colors={themePreviewMap[item.id].colors} />}
         <Text style={[styles.cost, { color: theme.text }]}>
-          {isUnlocked
-            ? '✅ Unlocked'
-            : item.id === 'badge_glitch'
-              ? '🔒 Unlock via 7-day Streak'
-              : `🧬 Requires ${item.cost} Lifetime XP`}
-        </Text>
+  {item.id === 'badge_glitch'
+    ? '🔒 Unlock via 7-day Streak'
+    : !isUnlocked
+      ? `🧬 Requires ${item.cost} XP`
+      : ''}
+</Text>
+
 
         {!isUnlocked && item.id !== 'badge_glitch' && (
           <TouchableOpacity onPress={() => handleUnlock(item.id, item.cost)}>
-            <Text style={[styles.buttonText, { color: theme.accent }]}>Unlock</Text>
+            <View style={styles.cyberButton}>
+  <Text style={styles.cyberButtonText, { color: theme.accent }}>🔓 Unlock</Text>
+</View>
+
           </TouchableOpacity>
         )}
 
 {isUnlocked && isTheme && (
   isActiveTheme
-    ? <Text style={[styles.buttonText, { color: '#4caf50' }]}>✅ Equipped</Text>
-    : <TouchableOpacity onPress={() => handleEquipTheme(item.id)}><Text style={[styles.buttonText, { color: theme.accent }]}>🎨 Equip</Text></TouchableOpacity>
+    ? <Text style={styles.cyberButtonTextEquipped}>✅ Equipped</Text>
+    : <TouchableOpacity onPress={() => handleEquipTheme(item.id)}><View style={styles.cyberButton}>
+    <Text style={styles.cyberButtonText}>🎨 Equip</Text>
+  </View>
+  </TouchableOpacity>
 )}
 
 
         {isUnlocked && isBadge && (
           isActiveBadge
-            ? <Text style={[styles.buttonText, { color: '#4caf50' }]}>✅ Equipped</Text>
+            ? <Text style={styles.cyberButtonTextEquipped}>✅ Equipped</Text>
             : <TouchableOpacity onPress={() => handleEquipBadge(item.id)}><Text style={[styles.buttonText, { color: theme.accent }]}>🎖️ Equip Badge</Text></TouchableOpacity>
         )}
 
         {isUnlocked && item.type === 'hud' && (
           isActiveHud
-            ? <Text style={[styles.buttonText, { color: '#4caf50' }]}>✅ Equipped</Text>
+            ? <Text style={styles.cyberButtonTextEquipped}>✅ Equipped</Text>
             : <TouchableOpacity onPress={() => handleEquipHud(item.id)}>
                 <Text style={[styles.buttonText, { color: theme.accent }]}>🖥️ Equip HUD</Text>
               </TouchableOpacity>
@@ -213,17 +224,28 @@ export default function RewardStoreScreen() {
       </View>
     );
   };
-
+  const filteredRewards = rewards.filter((r) => r.type === activeTab);
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Text style={[styles.title, { color: theme.accent }]}>🎁 Reward Store</Text>
       <Text style={[styles.xp, { color: theme.text }]}>Total Lifetime XP: {totalXpBank}</Text>
-      <FlatList
-        data={rewards}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 40 }}
-      />
+      <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 }}>
+  {['theme', 'badge', 'hud'].map((tab) => (
+    <TouchableOpacity key={tab} onPress={() => setActiveTab(tab as any)}>
+      <Text style={{ color: activeTab === tab ? theme.accent : '#666', fontWeight: '600' }}>
+        {tab.toUpperCase()}
+      </Text>
+    </TouchableOpacity>
+  ))}
+</View>
+
+
+<FlatList
+  data={filteredRewards}
+  keyExtractor={(item) => item.id}
+  renderItem={renderItem}
+  contentContainerStyle={{ paddingBottom: 40 }}
+/>
       <TouchableOpacity onPress={() => navigation.navigate('ThemeGalleryScreen')}>
         <Text style={{ color: theme.accent, textAlign: 'center', margin: 14 }}>🖼️ Browse Full Theme Gallery</Text>
       </TouchableOpacity>
@@ -245,8 +267,44 @@ const styles = StyleSheet.create({
     borderColor: `${theme.accent}44`,
     borderWidth: 1,
   }),
-  cardUnlocked: { borderColor: '#4caf50' },
+  cardUnlocked: (theme) => ({
+    borderColor: theme.accent,
+    borderWidth: 1,
+  }),
   rewardName: { fontSize: 16, marginBottom: 6 },
   cost: { fontSize: 14, marginBottom: 8 },
   buttonText: { fontSize: 14, fontWeight: 'bold' },
+  tabBar: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 },
+tabButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10, borderWidth: 1, borderColor: '#00f9ff55' },
+activeTab: { backgroundColor: '#00f9ff22' },
+tabText: { color: '#00f9ff', fontWeight: 'bold' },
+
+cyberButton: (theme) => ({
+  backgroundColor: `${theme.accent}33`,
+  paddingVertical: 8,
+  paddingHorizontal: 16,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: theme.accent,
+  marginTop: 6,
+  shadowColor: theme.accent,
+  shadowOpacity: 0.7,
+  shadowRadius: 6,
+}),
+cyberButtonText: { color: '#00f9ff', fontWeight: 'bold', textAlign: 'center' },
+
+cyberButtonEquipped: {
+  backgroundColor: '#0f0f0f',
+  paddingVertical: 8,
+  paddingHorizontal: 16,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: '#4caf50',
+  marginTop: 6,
+  shadowColor: '#4caf50',
+  shadowOpacity: 0.7,
+  shadowRadius: 6,
+},
+cyberButtonTextEquipped: { color: '#4caf50', fontWeight: 'bold', textAlign: 'center' },
+
 });

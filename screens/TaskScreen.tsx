@@ -24,6 +24,7 @@ import eventBus from '../utils/EventBus';
 import { updateQuestProgress } from '../utils/updateQuestProgress';
 import { simulateDailyProgress } from '../utils/simulateProgress';
 import { initialSimPlayers } from '../utils/simulatedPlayers';
+import { getBadgeIcon } from '../utils/badgeUtils';
 
 const getXpForLevel = (level: number): number => {
   return 100 + (level - 1) * 20; // Level 1 = 100, Level 2 = 120, etc.
@@ -223,20 +224,21 @@ export default function TaskScreen() {
   }, []);
   
 
-  // ✅ Cosmetics listener: should mount once
   useEffect(() => {
-    const reloadCosmetics = async () => {
-      const cosmetics = await CosmeticManager.getEquippedCosmetics();
-      setEquippedBadge(cosmetics.badge ?? null); // ép undefined thành null
-      setEquippedHud(cosmetics.hud ?? null);
+    const loadEquippedBadge = async () => {
+      const equipped = await AsyncStorage.getItem('equippedBadge');
+      setEquippedBadge(equipped || null);
     };
-
-    eventBus.on('cosmeticUpdated', reloadCosmetics);
-
+  
+    eventBus.on('cosmeticUpdated', loadEquippedBadge);
+  
+    loadEquippedBadge(); // load once on mount
+  
     return () => {
-      eventBus.off('cosmeticUpdated', reloadCosmetics);
+      eventBus.off('cosmeticUpdated', loadEquippedBadge);
     };
   }, []);
+  
 
 
   const addTask = () => {
@@ -406,14 +408,26 @@ export default function TaskScreen() {
 
     <View style={[styles.container]}>
 
-      {equippedBadge && (
-        <View style={{
-          position: 'absolute', top: 20, right: 20, backgroundColor: '#1a1a2e', padding: 8,
-          borderRadius: 30, borderColor: '#00f9ff', borderWidth: 1, zIndex: 10
-        }}>
-          <Text style={{ fontSize: 20, color: '#fff' }}>{equippedBadge === 'badge_glitch' ? '🎖️' : '🏅'}</Text>
-        </View>
-      )}
+{equippedBadge && equippedBadge !== 'badge_default' && (
+  <View style={{
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    backgroundColor: '#1a1a2e',
+    padding: 8,
+    borderRadius: 30,
+    borderColor: theme.accent,
+    borderWidth: 1,
+    zIndex: 10,
+  }}>
+    <Text style={{ fontSize: 20, color: '#fff' }}>
+      {getBadgeIcon(equippedBadge)}
+    </Text>
+  </View>
+)}
+
+
+
 
       {showXpLabel && (
         <Animated.Text
@@ -532,9 +546,9 @@ export default function TaskScreen() {
       <Picker
         selectedValue={selectedBossId}
         onValueChange={(value) => setSelectedBossId(value)}
-        style={{ backgroundColor: '#1a1a2e', color: '#fff', marginBottom: 12 }}
+        style={{ backgroundColor: '#1a1a2e', color: theme.text, marginBottom: 12 }}
       >
-        <Picker.Item label="🔓 No Boss" value="" />
+        <Picker.Item label="🔓 No Boss" value="" color={theme.text}/>
 
         {bosses
           .filter((boss) => !boss.isDefeated && isBossUnlocked(boss, bosses))
@@ -542,8 +556,9 @@ export default function TaskScreen() {
           .map((boss) => (
             <Picker.Item
               key={boss.id}
-              label={`🧠 ${boss.title}`}
+              label={`⚔️ ${boss.title}`}
               value={boss.id}
+              color={theme.text}
             />
           ))}
 
@@ -591,8 +606,8 @@ export default function TaskScreen() {
         padding: 12,
         borderRadius: 30,
         borderWidth: 1,
-        borderColor: '#00f9ff',
-        shadowColor: '#00f9ff',
+        borderColor: theme.accent,
+        shadowColor: theme.accent,
         shadowOpacity: 0.6,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 2 },
@@ -619,7 +634,7 @@ const makeStyles = (theme: typeof themes.default) =>
     },
     title: {
       fontSize: 24,
-      color: theme.accent,
+      color: theme.text,
       marginBottom: 10,
       fontWeight: 'bold',
     },
@@ -664,7 +679,6 @@ const makeStyles = (theme: typeof themes.default) =>
       color: theme.text,
       borderRadius: 8,
       marginRight: 8,
-
     },
     taskItem: {
       padding: 12,
@@ -677,7 +691,7 @@ const makeStyles = (theme: typeof themes.default) =>
       opacity: 0.6,
     },
     taskText: {
-      color: theme.text,
+      color: 'theme.text',
       fontSize: 16,
     },
     streakText: {
@@ -733,7 +747,7 @@ const makeStyles = (theme: typeof themes.default) =>
       marginHorizontal: 4,
     },
     navButtonText: {
-      color: theme.accent,
+      color: theme.text,
       fontWeight: 'bold',
       fontSize: 12,
     },

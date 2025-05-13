@@ -119,37 +119,6 @@ export default function ClassQuestScreen() {
     await handleLevelUp();
   };
 
-  const simulateNewDay = async () => {
-    const today = getTodayKey();
-    if (!playerClass) return;
-
-    await AsyncStorage.setItem('lastQuestDate', today);
-
-    setDailyQuest(null);
-    setQuestCompleted(false);
-    setFakeDateOffset((prev) => prev + 1);
-  };
-
-  const clearAllGameData = async () => {
-    const allKeys = await AsyncStorage.getAllKeys();
-    const classQuestKeys = allKeys.filter((key) => key.startsWith('classQuest_'));
-
-    await AsyncStorage.multiRemove([
-      'rpgSaveData', 'xp', 'level', 'tasks', 'bosses', 'quests', 'streakCount', 'lastActiveDate',
-      'bossHistory', 'playerClass', 'unlockedRewards', 'equippedCosmetics', 'questHistory',
-      'questStreak', 'lastQuestDate', 'edgewalkerUnlocked', ...classQuestKeys
-    ]);
-
-    setDailyQuest(null);
-    setQuestCompleted(false);
-    setPlayerClass(null);
-    setQuestStreak(0);
-    setNpc(null);
-
-    Alert.alert('🗑️ Data Cleared', 'All saved progress has been wiped.');
-    console.log('🗑️ All AsyncStorage game data cleared!');
-  };
-
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       loadQuestAndNPC();
@@ -170,8 +139,8 @@ export default function ClassQuestScreen() {
         </View>
       )}
 
-      <View style={styles.questBox}>
-        <Text style={styles.questText}>📜 {dailyQuest}</Text>
+      <View style={[styles.questBox, {borderColor: theme.accent}]}>
+        <Text style={[styles.questText, {color: theme.text}]}>📜 {dailyQuest}</Text>
       </View>
 
       <TouchableOpacity
@@ -179,7 +148,7 @@ export default function ClassQuestScreen() {
         disabled={questCompleted}
         style={[
           styles.button,
-          questCompleted ? styles.buttonDone : { borderColor: theme.accent },
+          questCompleted ? styles.buttonDone : { borderColor: '#808080' },
         ]}
       >
         <Text style={[styles.buttonText, { color: theme.accent }]}>
@@ -187,20 +156,7 @@ export default function ClassQuestScreen() {
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={simulateNewDay}
-        style={[styles.button, { borderColor: 'orange', marginTop: 20 }]}
-      >
-        <Text style={[styles.buttonText, { color: 'orange' }]}>⏩ Simulate New Day</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={clearAllGameData}
-        style={[styles.button, { borderColor: 'red', marginTop: 20 }]}
-      >
-        <Text style={[styles.buttonText, { color: 'red' }]}>🗑️ Clear All Game Data</Text>
-      </TouchableOpacity>
-
+      
       <View style={{ marginTop: 10 }}>
         <Text style={{ textAlign: 'center', color: '#aaa' }}>
           🔥 Streak: {questStreak} day{questStreak > 1 ? 's' : ''} {questStreak >= 7 && '🎖️'}
@@ -218,15 +174,13 @@ const styles = StyleSheet.create({
   npcName: { fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
   npcQuote: { fontSize: 14, fontStyle: 'italic', textAlign: 'center' },
   questBox: {
-    backgroundColor: '#1a1a2e',
     padding: 20,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#00f9ff66',
     marginBottom: 30,
   },
   questText: { fontSize: 18, color: '#fff', textAlign: 'center' },
-  button: { borderWidth: 1, padding: 14, borderRadius: 10, alignItems: 'center', marginTop: 10 },
+  button: { borderWidth: 3, padding: 14, borderRadius: 10, alignItems: 'center', marginTop: 10 },
   buttonText: { fontSize: 16, fontWeight: '600' },
   buttonDone: { backgroundColor: '#333', borderColor: '#555' },
 });
