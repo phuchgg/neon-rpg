@@ -26,7 +26,12 @@ export default function LeaderboardScreen() {
 const user = { id: 'me', name: 'Max', xp: progress.monthlyXp, tasksCompleted: progress.tasksCompleted, bossesDefeated: progress.bossesDefeated };
 
     const combined = [...simPlayers, user];
-    combined.sort((a, b) => b.xp - a.xp);
+    combined.sort((a, b) => {
+        if (b.xp !== a.xp) return b.xp - a.xp;
+        if (b.bossesDefeated !== a.bossesDefeated) return b.bossesDefeated - a.bossesDefeated;
+        return b.tasksCompleted - a.tasksCompleted;
+      });
+      
 
     setPlayers(combined);
 

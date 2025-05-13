@@ -30,6 +30,8 @@ const getXpForLevel = (level: number): number => {
 };
 
 const USER_MONTHLY_PROGRESS_KEY = 'userMonthlyProgress';
+const LAST_SIMULATE_TIME_KEY = 'lastSimulatedTime';
+
 
 export default function TaskScreen() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -150,15 +152,30 @@ export default function TaskScreen() {
     if (json) setBosses(JSON.parse(json));
   };
   
-
   useFocusEffect(
     useCallback(() => {
-      loadBosses();
-      loadTasks();
-      loadProgress();
-      simulateDailyProgress();
+      const checkSimulateCooldown = async () => {
+        const now = Date.now();
+        const lastSimulated = parseInt(await AsyncStorage.getItem(LAST_SIMULATE_TIME_KEY) || '0');
+  
+        if (now - lastSimulated >= 2 * 60 * 60 * 1000) {
+          console.log('🕒 Simulating player progress...');
+          await simulateDailyProgress();
+          await AsyncStorage.setItem(LAST_SIMULATE_TIME_KEY, now.toString());
+        } else {
+          console.log('⏳ Less than 2 hours, skip simulate');
+        }
+  
+        // Load lại dữ liệu 1 lần duy nhất
+        await loadBosses();
+        await loadTasks();
+        await loadProgress();
+      };
+  
+      checkSimulateCooldown();
     }, [])
   );
+  
 
   const loadTasks = async () => {
     const json = await AsyncStorage.getItem('tasks');
