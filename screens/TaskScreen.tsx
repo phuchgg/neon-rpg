@@ -25,6 +25,7 @@ import { updateQuestProgress } from '../utils/updateQuestProgress';
 import { simulateDailyProgress } from '../utils/simulateProgress';
 import { initialSimPlayers } from '../utils/simulatedPlayers';
 import { getBadgeIcon } from '../utils/badgeUtils';
+import CrossPlatformPicker from '../contexts/CrossPlatformPicker';
 
 const getXpForLevel = (level: number): number => {
   return 100 + (level - 1) * 20; // Level 1 = 100, Level 2 = 120, etc.
@@ -83,27 +84,58 @@ export default function TaskScreen() {
 
 
   const clearAllGameData = async () => {
-    await AsyncStorage.multiRemove([
-      'rpgSaveData',
-      'xp',
-      'level',
-      'tasks',
-      'bosses',
-      'quests',
-      'streakCount',
-      'lastActiveDate',
-      'bossHistory',
-      'playerClass',
-      'unlockedRewards',
-      'equippedCosmetics',
-      'questHistory',
-      'questStreak',
-      'lastQuestDate',
-      'edgewalkerUnlocked',
-    ]);
-    setEquippedBadge(null);
-    Alert.alert('🗑️ Data Cleared', 'All saved progress has been wiped.');
-    console.log('🗑️ All AsyncStorage game data cleared!');
+    try {
+      const allKeys = await AsyncStorage.getAllKeys();
+  
+      // Known keys (static)
+      const staticKeys = [
+        'rpgSaveData',
+        'xp',
+        'level',
+        'tasks',
+        'bosses',
+        'quests',
+        'streakCount',
+        'lastActiveDate',
+        'bossHistory',
+        'playerClass',
+        'unlockedRewards',
+        'equippedCosmetics',
+        'questHistory',
+        'questStreak',
+        'lastQuestDate',
+        'edgewalkerUnlocked',
+      ];
+  
+      // Dynamically catch prefixes (future-proof)
+      const dynamicPrefixes = [
+        'tasks_',
+        'bosses_',
+        'quests_',
+        'activityHistory',
+        'classStreak_',
+        'rewardStore_',
+        'cosmetics_',
+      ];
+  
+      const dynamicKeys = allKeys.filter((key) =>
+        dynamicPrefixes.some((prefix) => key.startsWith(prefix))
+      );
+  
+      const keysToRemove = [...staticKeys, ...dynamicKeys];
+  
+      if (keysToRemove.length > 0) {
+        await AsyncStorage.multiRemove(keysToRemove);
+        setEquippedBadge(null);
+        Alert.alert('🗑️ Data Cleared', `${keysToRemove.length} keys removed. All game data wiped.`);
+        console.log('🗑️ AsyncStorage game data cleared:', keysToRemove);
+      } else {
+        Alert.alert('✅ Nothing to clear', 'No game data found in AsyncStorage.');
+      }
+    } catch (error) {
+      console.error('Error clearing game data:', error);
+      Alert.alert('❌ Error', 'Failed to clear data. Check console.');
+    }
   };
 
   const resetBosses = async () => {
@@ -543,26 +575,23 @@ export default function TaskScreen() {
           <Text style={styles.addButtonText}>Add Task</Text>
         </TouchableOpacity>
       </View>
-      <Picker
-        selectedValue={selectedBossId}
-        onValueChange={(value) => setSelectedBossId(value)}
-        style={{ backgroundColor: '#1a1a2e', color: theme.text, marginBottom: 12 }}
-      >
-        <Picker.Item label="🔓 No Boss" value="" color={theme.text}/>
+      <CrossPlatformPicker
+  selectedValue={selectedBossId}
+  onValueChange={(value) => setSelectedBossId(value)}
+  theme={theme}
+  style={{ marginBottom: 12 }}
+  options={[
+    { label: '🔓 No Boss', value: '' },
+    ...bosses
+      .filter((boss) => !boss.isDefeated && isBossUnlocked(boss, bosses))
+      .sort((a, b) => a.title.localeCompare(b.title))
+      .map((boss) => ({
+        label: `⚔️ ${boss.title}`,
+        value: boss.id,
+      })),
+  ]}
+/>
 
-        {bosses
-          .filter((boss) => !boss.isDefeated && isBossUnlocked(boss, bosses))
-          .sort((a, b) => a.title.localeCompare(b.title))
-          .map((boss) => (
-            <Picker.Item
-              key={boss.id}
-              label={`⚔️ ${boss.title}`}
-              value={boss.id}
-              color={theme.text}
-            />
-          ))}
-
-      </Picker>
 
       <FlatList
         data={tasks}
@@ -617,6 +646,12 @@ export default function TaskScreen() {
     >
       <Text style={{ fontSize: 20, color: '#00f9ff' }}>🏅</Text>
     </TouchableOpacity>
+    <TouchableOpacity
+  style={styles.resetButton}
+  onPress={clearAllGameData}
+>
+  <Text style={styles.resetButtonText}>🗑️ Reset Game Data</Text>
+</TouchableOpacity>
     </View>
 
   );

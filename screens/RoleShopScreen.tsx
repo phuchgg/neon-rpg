@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../utils/navigation';
-import { playerClasses, CLASS_SWITCH_COST } from '../utils/playerClasses';
+import { classes as playerClasses, CLASS_SWITCH_COST } from '../utils/classes';
 import { useTheme } from '../contexts/ThemeContext';
+import { Asset } from 'expo-asset';
 
 type RoleShopScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'RoleShopScreen'>;
@@ -13,16 +14,27 @@ type RoleShopScreenProps = {
 export default function RoleShopScreen({ navigation }: RoleShopScreenProps) {
   const [currentClass, setCurrentClass] = useState('');
   const [totalXp, setTotalXp] = useState(0);
+  const [ready, setReady] = useState(false);
   const { theme } = useTheme();
 
   useEffect(() => {
-    const loadData = async () => {
+    const init = async () => {
       const storedClass = await AsyncStorage.getItem('playerClass');
       const storedTotalXp = await AsyncStorage.getItem('totalXp');
+
       if (storedClass) setCurrentClass(storedClass);
       if (storedTotalXp) setTotalXp(parseInt(storedTotalXp));
+
+      // Preload all NPC avatars
+      const avatarAssets = playerClasses.map((cls) =>
+        Asset.fromModule(cls.npc.avatar).downloadAsync()
+      );
+      await Promise.all(avatarAssets);
+
+      setReady(true);
     };
-    loadData();
+
+    init();
   }, []);
 
   const addHistory = async (item: { date: string; type: 'class' | 'quest' | 'boss' | 'reward'; description: string; details?: any }) => {
@@ -54,7 +66,6 @@ export default function RoleShopScreen({ navigation }: RoleShopScreenProps) {
             await AsyncStorage.setItem('totalXp', newTotalXp.toString());
             await AsyncStorage.setItem('playerClass', newClassId);
 
-            // ✅ Lưu vào lịch sử
             await addHistory({
               date: new Date().toISOString(),
               type: 'class',
@@ -69,6 +80,15 @@ export default function RoleShopScreen({ navigation }: RoleShopScreenProps) {
       ]
     );
   };
+
+  if (!ready) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.accent} />
+        <Text style={[styles.loadingText, { color: theme.accent }]}>Loading roles...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -94,7 +114,11 @@ export default function RoleShopScreen({ navigation }: RoleShopScreenProps) {
             }}
             disabled={isLocked || cls.id === currentClass}
           >
-            <Text style={[styles.name, { color: theme.accent }]}>{cls.name}</Text>
+            <View style={styles.row}>
+              <Image source={cls.npc.avatar} style={styles.avatar} />
+              <Text style={[styles.name, { color: theme.accent }]}>{cls.name}</Text>
+            </View>
+
             <Text style={[styles.bonus, { color: theme.text }]}>{cls.bonus}</Text>
             <Text style={[styles.lore, { color: theme.text }]}>{cls.lore}</Text>
 
@@ -117,6 +141,8 @@ export default function RoleShopScreen({ navigation }: RoleShopScreenProps) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, paddingTop: 60 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 12, fontSize: 16 },
   title: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 16 },
   current: { textAlign: 'center', marginBottom: 24 },
   card: (theme) => ({
@@ -134,4 +160,6 @@ const styles = StyleSheet.create({
   lockedCard: { opacity: 0.3, borderColor: '#555' },
   lockedLabel: { marginTop: 6, fontWeight: '600', textAlign: 'center' },
   currentLabel: { fontSize: 12, marginTop: 6 },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  avatar: { width: 48, height: 48, marginRight: 10, resizeMode: 'contain' },
 });

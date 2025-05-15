@@ -72,10 +72,69 @@ export default function QuestJournalTabs() {
   const [activeTab, setActiveTab] = useState<QuestType>('Daily');
   const [quests, setQuests] = useState<Quest[]>([]);
   const { theme } = useTheme();
+  const [timerTick, setTimerTick] = useState(Date.now());
+
+  const simulateTaskComplete = async () => {
+    const key = `quests_${activeTab}`;
+    const stored = await AsyncStorage.getItem(key);
+    if (!stored) return;
+  
+    const questsArray: Quest[] = JSON.parse(stored);
+  
+    const updated = questsArray.map((q) => {
+      if (q.type === 'task' && !q.isComplete && !q.isFailed) {
+        const current = q.condition.current + 1;
+        const progress = Math.min((current / q.condition.target) * 100, 100);
+  
+        return {
+          ...q,
+          condition: { ...q.condition, current },
+          progress,
+          isComplete: current >= q.condition.target,
+        };
+      }
+      return q;
+    });
+  
+    await AsyncStorage.setItem(key, JSON.stringify(updated));
+    setQuests([...updated]); // ✅ Triggers render
+  };
+  
+  
 
   useEffect(() => {
     loadQuests(activeTab);
   }, [activeTab]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimerTick(Date.now());
+    }, 1000 * 60); // Tick every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  
+  useEffect(() => {
+    let changed = false;
+  
+    const updated = quests.map((q) => {
+      if (q.timeLimit && q.startTime && !q.isComplete && !q.isFailed) {
+        const elapsed = Date.now() - q.startTime;
+        if (elapsed > q.timeLimit) {
+          changed = true;
+          return { ...q, isFailed: true };
+        }
+      }
+      return q;
+    });
+  
+    if (changed) {
+      const key = `quests_${activeTab}`;
+      AsyncStorage.setItem(key, JSON.stringify(updated));
+      setQuests(updated);
+    }
+  }, [timerTick]);
+  
 
   const loadQuests = async (type: QuestType) => {
     const key = `quests_${type}`;
@@ -149,7 +208,25 @@ export default function QuestJournalTabs() {
         {item.condition.current} / {item.condition.target} • 🎁 {item.rewardXp} XP
       </Text>
       {item.isComplete && <Text style={[styles.complete, { color: theme.text }]}>✅ Complete</Text>}
+      {item.timeLimit && item.startTime && !item.isComplete && !item.isFailed && (() => {
+  const remainingMs = Math.max(0, item.timeLimit - (Date.now() - item.startTime));
+  const mins = Math.floor(remainingMs / 60000);
+  const secs = Math.floor((remainingMs % 60000) / 1000);
+  return (
+    <Text style={[styles.progressLabel, { color: theme.text }]}>
+      ⏳ {mins}:{secs.toString().padStart(2, '0')} left
+    </Text>
+  );
+})()}
+
+
+{item.isFailed && (
+  <Text style={[styles.complete, { color: '#ff5555' }]}>
+    ❌ Failed (Time's up)
+  </Text>
+)}
     </View>
+    
   );
 
   return (
@@ -175,7 +252,15 @@ export default function QuestJournalTabs() {
         renderItem={renderQuest}
         contentContainerStyle={{ paddingBottom: 40 }}
       />
+      <TouchableOpacity
+  style={[styles.simulateButton, { borderColor: theme.accent }]}
+  onPress={simulateTaskComplete}
+>
+  <Text style={{ color: theme.accent, textAlign: 'center' }}>🆙 Simulate Task Complete</Text>
+</TouchableOpacity>
+
     </View>
+    
   );
 }
 

@@ -28,8 +28,8 @@ export const generateUniqueQuests = (type: 'Daily' | 'Weekly' | 'Event', existin
     const target = template.baseTarget * scale + Math.floor(Math.random() * scale);
     const xp = template.baseXp * scale + Math.floor(Math.random() * 20);
 
-    return {
-      id: `${template.id}_${Date.now()}`,  // Unique ID per day
+    const quest: Quest = {
+      id: `${template.id}_${Date.now()}`,
       title: template.title.replace('{n}', `${target}`),
       description: template.desc,
       progress: 0,
@@ -38,5 +38,14 @@ export const generateUniqueQuests = (type: 'Daily' | 'Weekly' | 'Event', existin
       condition: { target, current: 0 },
       rewardXp: xp,
     };
+  
+    // 🆕 Add timer for "Check Off {n} Tasks Fast"
+    if (template.id === 'task_speed') {
+      quest.timeLimit = 6 * 60 * 60 * 1000; // 6 hours in ms
+      quest.startTime = Date.now(); // Starts now (or after login)
+    }
+  
+    return quest;
+    
   });
 };

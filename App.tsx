@@ -23,12 +23,14 @@ const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}> 
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
         <NavigationContainer>
           <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="ClassSelectScreen" component={ClassSelectScreen} />
-            <Stack.Screen name="TaskScreen" component={TaskScreen} />
+            <Stack.Screen name="ClassSelectScreen" component={ClassSelectScreen} />
+            <Stack.Screen name="TaskScreen" component={TaskScreen} options={{
+              gestureEnabled: false, // 🔒 Disable swipe back
+            }} />
             <Stack.Screen name="RewardStoreScreen" component={RewardStoreScreen} />
             <Stack.Screen name="RoleShopScreen" component={RoleShopScreen} />
             <Stack.Screen name="BossMapScreen" component={BossMapScreen} />
@@ -39,7 +41,7 @@ export default function App() {
             <Stack.Screen name="QuestJournalScreen" component={QuestJournalScreen} />
             <Stack.Screen name="ActivityHistoryScreen" component={ActivityHistoryScreen} />
             <Stack.Screen name="ClassQuestScreen" component={ClassQuestScreen} />
-            <Stack.Screen name="LeaderboardScreen" component={LeaderboardScreen}/>
+            <Stack.Screen name="LeaderboardScreen" component={LeaderboardScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </ThemeProvider>

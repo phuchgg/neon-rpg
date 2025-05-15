@@ -37,6 +37,8 @@ const ThemePreviewBar = ({ colors }: { colors: string[] }) => (
   </View>
 );
 
+
+
 export default function RewardStoreScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { setThemeByKey, themeKey, theme } = useTheme();
@@ -62,6 +64,10 @@ export default function RewardStoreScreen() {
     setUnlocked(savedRewards ? JSON.parse(savedRewards) : []);
     setEquippedBadge(cosmetics.badge);
     setEquippedHud(cosmetics.hud ?? null);
+
+
+    
+
   
     if (streak >= 7 && !(savedRewards?.includes('badge_glitch'))) {
       const updated = [...JSON.parse(savedRewards || '[]'), 'badge_glitch'];

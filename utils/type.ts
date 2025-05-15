@@ -36,6 +36,9 @@ export type Quest = {
     current: number;
   };
   rewardXp: number;
+  timeLimit?: number; // 🆕 In milliseconds (e.g., 6 * 60 * 60 * 1000 for 6h)
+  startTime?: number; // 🆕 Timestamp (Date.now())
+  isFailed?: boolean;  // ✅ Add this line
 };
 
 export interface Npc {

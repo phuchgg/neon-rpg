@@ -15,6 +15,7 @@ import { Picker } from '@react-native-picker/picker';
 import { Boss } from '../utils/type';
 import { RootStackParamList } from '../utils/navigation';
 import { useTheme } from '../contexts/ThemeContext';
+import CrossPlatformPicker from '../contexts/CrossPlatformPicker';
 
 type CreateBossScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'CreateBossScreen'>;
@@ -76,6 +77,7 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
   
     Alert.alert('Boss Created!', `You've launched "${newBoss.title}".`);
     navigation.navigate('BossQuestScreen', { refreshed: true });
+    navigation.goBack();  // ✅ Simple goBack, no params needed
   };
   
 
@@ -102,15 +104,17 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
       />
 
       <Text style={styles.label}>Select Boss Tier:</Text>
-      <Picker
-        selectedValue={selectedTier}
-        onValueChange={(value) => setSelectedTier(value)}
-        style={styles.picker}
-      >
-        <Picker.Item label="Mini Boss" value="mini" color={theme.text}/>
-        <Picker.Item label="Elite Boss" value="elite" color={theme.text} />
-        <Picker.Item label="Mega Boss" value="mega" color={theme.text}/>
-      </Picker>
+      <CrossPlatformPicker
+  selectedValue={selectedTier}
+  options={[
+    { label: 'Mini Boss', value: 'mini' },
+    { label: 'Elite Boss', value: 'elite' },
+    { label: 'Mega Boss', value: 'mega' },
+  ]}
+  onValueChange={(value) => setSelectedTier(value)}
+  theme={theme}
+  style={{ marginBottom: 16 }}
+/>
 
       <Text style={styles.label}>Unlocks After:</Text>
       {bosses.map((b) => (
