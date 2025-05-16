@@ -5,6 +5,7 @@ import { Picker } from '@react-native-picker/picker';
 type Option = {
   label: string;
   value: string;
+  icon: any;
 };
 
 type CrossPlatformPickerProps = {
@@ -41,7 +42,7 @@ const CrossPlatformPicker: React.FC<CrossPlatformPickerProps> = ({
       {options.map((opt) => (
         <Picker.Item
           key={opt.value}
-          label={opt.label}
+          label={`${opt.icon ? '⚔️ ' : ''}${opt.label}`}
           value={opt.value}
           color={Platform.OS === 'android' ? '#000000' : theme.text}
         />

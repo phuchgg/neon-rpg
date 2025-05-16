@@ -17,6 +17,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Audio } from 'expo-av';
 import Svg, { Line } from 'react-native-svg';
 import { CosmeticManager } from '../utils/CosmeticManager';
+import AssetManager from '../utils/AssetManager';
+import { themes } from '../utils/themes';
 
 const { width, height } = Dimensions.get('window');
 
@@ -43,6 +45,14 @@ export default function BossMapScreen() {
     });
   };
 
+  const hashBosses = (bosses: Boss[]) =>
+    JSON.stringify(bosses.map((b) => ({
+      id: b.id,
+      isDefeated: b.isDefeated,
+      unlockAfter: b.unlockAfter,
+    })));
+
+
   const loadData = async () => {
     setLoading(true);
 
@@ -52,20 +62,27 @@ export default function BossMapScreen() {
 
     if (json) {
       const loadedBosses: Boss[] = JSON.parse(json);
-      setBosses(loadedBosses);
 
-      const defeated = loadedBosses.filter((b) => b.isDefeated).length;
-      const currentZone = defeated < 3 ? 1 : defeated < 6 ? 2 : 3;
+      // Diff Check - Only update if changed
+      const newHash = hashBosses(loadedBosses);
+      const currentHash = hashBosses(bosses);
 
-      if (currentZone > lastUnlockedZone) {
-        setShowZoneUnlock(true);
-        setShowZoneBanner(true);
-        playUnlockSound();
-        await AsyncStorage.setItem('lastUnlockedZone', currentZone.toString());
-        setTimeout(() => {
-          setShowZoneUnlock(false);
-          setShowZoneBanner(false);
-        }, 2500);
+      if (newHash !== currentHash) {
+        setBosses(loadedBosses);
+
+        const defeated = loadedBosses.filter((b) => b.isDefeated).length;
+        const currentZone = defeated < 3 ? 1 : defeated < 6 ? 2 : 3;
+
+        if (currentZone > lastUnlockedZone) {
+          setShowZoneUnlock(true);
+          setShowZoneBanner(true);
+          playUnlockSound();
+          await AsyncStorage.setItem('lastUnlockedZone', currentZone.toString());
+          setTimeout(() => {
+            setShowZoneUnlock(false);
+            setShowZoneBanner(false);
+          }, 2500);
+        }
       }
     }
 
@@ -74,6 +91,7 @@ export default function BossMapScreen() {
 
     setLoading(false);
   };
+
 
   useEffect(() => {
     AsyncStorage.getItem('playerClass').then((value) => {
@@ -85,12 +103,18 @@ export default function BossMapScreen() {
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', async () => {
-      const shouldReload = await AsyncStorage.getItem('shouldReloadBosses');
-      if (shouldReload === 'true') {
-        await loadData();
-        await AsyncStorage.setItem('shouldReloadBosses', 'false');
+      const json = await AsyncStorage.getItem('bosses');
+      if (!json) return;
+
+      const loadedBosses: Boss[] = JSON.parse(json);
+      const newHash = hashBosses(loadedBosses);
+      const currentHash = hashBosses(bosses);
+
+      if (newHash !== currentHash) {
+        setBosses(loadedBosses);
       }
     });
+
 
     return unsubscribe;
   }, [navigation]);
@@ -99,10 +123,11 @@ export default function BossMapScreen() {
   const cycleIndex = Math.floor(defeatedCount / 8) % 3;
 
   const currentMap = [
-    require('../assets/maps/cyber_map_bg.png'),
-    require('../assets/maps/cyber_map_bg_2.png'),
-    require('../assets/maps/cyber_map_bg_final.png'),
+    AssetManager.Maps.Zone1,
+    AssetManager.Maps.Zone2,
+    AssetManager.Maps.Zone3,
   ][cycleIndex];
+
 
   const bossPositions: Record<string, { x: number; y: number }> = {};
   bosses.forEach((boss, index) => {
@@ -123,19 +148,13 @@ export default function BossMapScreen() {
     <ImageBackground source={currentMap} style={styles.map} resizeMode="stretch">
       {/* Add Boss Button */}
       <TouchableOpacity
-        style={[styles.addButton, { backgroundColor: `${theme.background}cc`, borderColor: `${theme.accent}44` }]}
-        onPress={() => navigation.navigate('CreateBossScreen')}
-      >
-        <Text style={{ color: theme.text }}>+ Add Boss</Text>
-      </TouchableOpacity>
+  style={styles.addButton(theme)}
+  onPress={() => navigation.navigate('CreateBossScreen')}
+>
+  <Text style={{ color: theme.accent, fontWeight: 'bold', fontSize: 20 }}>＋</Text>
+</TouchableOpacity>
 
-      {/* Back Button */}
-      <TouchableOpacity
-        style={[styles.backButton, { backgroundColor: `${theme.background}cc`, borderColor: `${theme.accent}44` }]}
-        onPress={() => navigation.navigate('TaskScreen')}
-      >
-        <Text style={{ color: theme.text }}>← Back</Text>
-      </TouchableOpacity>
+
 
       {equippedHud === 'hud_nightwave' && <View style={styles.hudOverlay} />}
 
@@ -177,11 +196,7 @@ export default function BossMapScreen() {
             (id) => !bosses.find((b) => b.id === id)?.isDefeated
           );
 
-          const avatarSource = {
-            mini: require('../assets/bosses/mini.png'),
-            elite: require('../assets/bosses/elite.png'),
-            mega: require('../assets/bosses/mega.png'),
-          }[boss.tier];
+          const avatarSource = AssetManager.BossIcons[boss.tier];
 
           return (
             <TouchableOpacity
@@ -201,8 +216,8 @@ export default function BossMapScreen() {
               <Image
                 source={avatarSource}
                 style={{
-                  width: 40,
-                  height: 40,
+                  width: 50,
+                  height: 50,
                   opacity: isLocked ? 0.4 : 1,
                 }}
                 resizeMode="contain"
@@ -247,24 +262,24 @@ const styles = StyleSheet.create({
     zIndex: 4,
     opacity: 0.4,
   },
-  addButton: {
-    position: 'absolute',
-    bottom: 40,
-    right: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    zIndex: 20,
-  },
-  backButton: {
-    position: 'absolute',
-    top: 40,
-    left: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    zIndex: 20,
-  },
+  addButton: (theme) => ({
+  position: 'absolute',
+  bottom: 60,
+  right: 20,
+  width: 60,
+  height: 60,
+  borderRadius: 30, // Perfect circle
+  borderWidth: 2,
+  borderColor: theme.accent, // Neon border color from your theme
+  backgroundColor: `${theme.accent}22`, // Slight transparent neon glow inside
+  alignItems: 'center',
+  justifyContent: 'center',
+  shadowColor: theme.accent, // Neon glow shadow
+  shadowOpacity: 0.9,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 0 },
+  elevation: 10, // For Android shadow
+  zIndex: 20,
+}),
+
 });

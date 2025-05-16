@@ -16,6 +16,7 @@ import { Boss } from '../utils/type';
 import { RootStackParamList } from '../utils/navigation';
 import { useTheme } from '../contexts/ThemeContext';
 import CrossPlatformPicker from '../contexts/CrossPlatformPicker';
+import AssetManager from '../utils/AssetManager';
 
 type CreateBossScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'CreateBossScreen'>;
@@ -77,13 +78,12 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
   
     Alert.alert('Boss Created!', `You've launched "${newBoss.title}".`);
     navigation.navigate('BossQuestScreen', { refreshed: true });
-    navigation.goBack();  // ✅ Simple goBack, no params needed
   };
   
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.header}>🎮 New Boss Quest</Text>
+      <Text style={styles.header}>New Boss Quest</Text>
 
       <TextInput
         style={styles.input}
@@ -107,11 +107,12 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
       <CrossPlatformPicker
   selectedValue={selectedTier}
   options={[
-    { label: 'Mini Boss', value: 'mini' },
-    { label: 'Elite Boss', value: 'elite' },
-    { label: 'Mega Boss', value: 'mega' },
-  ]}
-  onValueChange={(value) => setSelectedTier(value)}
+  { label: 'Mini Boss', value: 'mini', icon: AssetManager.BossIcons.mini },
+  { label: 'Elite Boss', value: 'elite', icon: AssetManager.BossIcons.elite },
+  { label: 'Mega Boss', value: 'mega', icon: AssetManager.BossIcons.mega },
+]}
+
+  onValueChange={(value) => setSelectedTier(value as 'mini' | 'elite' | 'mega')}
   theme={theme}
   style={{ marginBottom: 16 }}
 />

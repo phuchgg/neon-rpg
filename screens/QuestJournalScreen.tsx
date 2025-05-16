@@ -9,98 +9,12 @@ import { generateUniqueQuests } from '../utils/QuestGenerator';
 const questTypes = ['Daily', 'Weekly', 'Event'] as const;
 type QuestType = typeof questTypes[number];
 
-const dummyQuests: Record<QuestType, Quest[]> = {
-  Daily: [
-    {
-      id: 'd1',
-      title: 'Complete 3 Tasks Today',
-      description: 'Small steps daily.',
-      progress: 0,
-      isComplete: false,
-      type: 'task',
-      condition: { target: 3, current: 0 },
-      rewardXp: 20,
-    },
-    {
-      id: 'd2',
-      title: 'Defeat 1 Mini Boss',
-      description: 'Warm up your skills.',
-      progress: 0,
-      isComplete: false,
-      type: 'boss',
-      condition: { target: 1, current: 0 },
-      rewardXp: 25,
-    },
-  ],
-  Weekly: [
-    {
-      id: 'w1',
-      title: 'Complete 20 Tasks This Week',
-      description: 'Stay productive over the week.',
-      progress: 0,
-      isComplete: false,
-      type: 'task',
-      condition: { target: 20, current: 0 },
-      rewardXp: 100,
-    },
-    {
-      id: 'w2',
-      title: 'Defeat 5 Elite Bosses',
-      description: 'Show consistency in battle.',
-      progress: 0,
-      isComplete: false,
-      type: 'boss',
-      condition: { target: 5, current: 0 },
-      rewardXp: 150,
-    },
-  ],
-  Event: [
-    {
-      id: 'e1',
-      title: 'Special Event: Defeat Mega Boss',
-      description: 'Limited time challenge!',
-      progress: 0,
-      isComplete: false,
-      type: 'boss',
-      condition: { target: 1, current: 0 },
-      rewardXp: 300,
-    },
-  ],
-};
-
 export default function QuestJournalTabs() {
   const [activeTab, setActiveTab] = useState<QuestType>('Daily');
   const [quests, setQuests] = useState<Quest[]>([]);
   const { theme } = useTheme();
   const [timerTick, setTimerTick] = useState(Date.now());
 
-  const simulateTaskComplete = async () => {
-    const key = `quests_${activeTab}`;
-    const stored = await AsyncStorage.getItem(key);
-    if (!stored) return;
-  
-    const questsArray: Quest[] = JSON.parse(stored);
-  
-    const updated = questsArray.map((q) => {
-      if (q.type === 'task' && !q.isComplete && !q.isFailed) {
-        const current = q.condition.current + 1;
-        const progress = Math.min((current / q.condition.target) * 100, 100);
-  
-        return {
-          ...q,
-          condition: { ...q.condition, current },
-          progress,
-          isComplete: current >= q.condition.target,
-        };
-      }
-      return q;
-    });
-  
-    await AsyncStorage.setItem(key, JSON.stringify(updated));
-    setQuests([...updated]); // ✅ Triggers render
-  };
-  
-  
 
   useEffect(() => {
     loadQuests(activeTab);
@@ -109,14 +23,14 @@ export default function QuestJournalTabs() {
   useEffect(() => {
     const interval = setInterval(() => {
       setTimerTick(Date.now());
-    }, 1000 * 60); // Tick every minute
+    }, 1000); // ✅ Tick every second now
     return () => clearInterval(interval);
   }, []);
 
-  
+
   useEffect(() => {
     let changed = false;
-  
+
     const updated = quests.map((q) => {
       if (q.timeLimit && q.startTime && !q.isComplete && !q.isFailed) {
         const elapsed = Date.now() - q.startTime;
@@ -127,28 +41,28 @@ export default function QuestJournalTabs() {
       }
       return q;
     });
-  
+
     if (changed) {
       const key = `quests_${activeTab}`;
       AsyncStorage.setItem(key, JSON.stringify(updated));
       setQuests(updated);
     }
   }, [timerTick]);
-  
+
 
   const loadQuests = async (type: QuestType) => {
     const key = `quests_${type}`;
     const historyKey = `quests_history_${type}`;
     const resetKey = `lastReset_${type}`;
-  
+
     const stored = await AsyncStorage.getItem(key);
     const historyStored = await AsyncStorage.getItem(historyKey);
     const lastResetStr = await AsyncStorage.getItem(resetKey);
-  
+
     const historyIds = historyStored ? JSON.parse(historyStored) : [];
     const lastReset = lastResetStr ? new Date(lastResetStr) : null;
     const now = new Date();
-  
+
     // 🕒 Cooldown logic
     const shouldReset =
       !lastReset ||
@@ -156,28 +70,28 @@ export default function QuestJournalTabs() {
       (type === 'Weekly' &&
         now.getDay() === 1 && // Monday reset
         now.toDateString() !== lastReset.toDateString());
-  
+
     if (shouldReset || !stored) {
       const newQuests = generateUniqueQuests(type, historyIds);
-  
+
       await AsyncStorage.setItem(key, JSON.stringify(newQuests));
       await AsyncStorage.setItem(resetKey, now.toISOString());
-  
+
       // Update history to avoid duplicates
       const updatedHistory = [
         ...historyIds,
         ...newQuests.map((q) => q.id.split('_')[0]),
       ].slice(-10); // Keep last 10 unique
-  
+
       await AsyncStorage.setItem(historyKey, JSON.stringify(updatedHistory));
-  
+
       setQuests(newQuests);
     } else {
       setQuests(JSON.parse(stored));
     }
   };
-  
-  
+
+
 
   const fakeCompleteQuest = async (questId: string) => {
     const updated = quests.map((q) =>
@@ -209,24 +123,28 @@ export default function QuestJournalTabs() {
       </Text>
       {item.isComplete && <Text style={[styles.complete, { color: theme.text }]}>✅ Complete</Text>}
       {item.timeLimit && item.startTime && !item.isComplete && !item.isFailed && (() => {
-  const remainingMs = Math.max(0, item.timeLimit - (Date.now() - item.startTime));
-  const mins = Math.floor(remainingMs / 60000);
-  const secs = Math.floor((remainingMs % 60000) / 1000);
-  return (
-    <Text style={[styles.progressLabel, { color: theme.text }]}>
-      ⏳ {mins}:{secs.toString().padStart(2, '0')} left
-    </Text>
-  );
-})()}
+        const remainingMs = Math.max(0, item.timeLimit - (Date.now() - item.startTime));
+        const totalSeconds = Math.floor(remainingMs / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        return (
+          <Text style={[styles.progressLabel, { color: theme.text }]}>
+            ⏳ {hours.toString().padStart(2, '0')}:{minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')} left
+          </Text>
+        );
+
+      })()}
 
 
-{item.isFailed && (
-  <Text style={[styles.complete, { color: '#ff5555' }]}>
-    ❌ Failed (Time's up)
-  </Text>
-)}
+      {item.isFailed && (
+        <Text style={[styles.complete, { color: '#ff5555' }]}>
+          ❌ Failed (Time's up)
+        </Text>
+      )}
     </View>
-    
+
   );
 
   return (
@@ -252,15 +170,9 @@ export default function QuestJournalTabs() {
         renderItem={renderQuest}
         contentContainerStyle={{ paddingBottom: 40 }}
       />
-      <TouchableOpacity
-  style={[styles.simulateButton, { borderColor: theme.accent }]}
-  onPress={simulateTaskComplete}
->
-  <Text style={{ color: theme.accent, textAlign: 'center' }}>🆙 Simulate Task Complete</Text>
-</TouchableOpacity>
 
     </View>
-    
+
   );
 }
 

@@ -1,5 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Image,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Progress from 'react-native-progress';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
@@ -7,6 +15,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Boss } from '../utils/type';
 import { RootStackParamList } from '../utils/navigation';
 import { useTheme } from '../contexts/ThemeContext';
+import AssetManager from '../utils/AssetManager';
+
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'BossQuestScreen'>;
 
@@ -47,7 +57,7 @@ export default function BossQuestScreen() {
       const starterBosses: Boss[] = [
         {
           id: 'boss1',
-          title: '🚗 Get Driver License',
+          title: 'Get Driver License',
           description: 'Complete theory + practical lessons.',
           isDefeated: false,
           createdAt: Date.now(),
@@ -58,7 +68,7 @@ export default function BossQuestScreen() {
         },
         {
           id: 'boss2',
-          title: '🌐 Launch Portfolio Website',
+          title: 'Launch Portfolio Website',
           description: 'Finish design + deploy to GitHub Pages.',
           isDefeated: true,
           createdAt: Date.now(),
@@ -73,32 +83,44 @@ export default function BossQuestScreen() {
     }
   };
 
+  const getBossImage = (tier: Boss['tier']) => AssetManager.BossIcons[tier] || AssetManager.BossIcons.mini;
+
+
   const renderBoss = ({ item }: { item: Boss }) => (
     <View style={[styles.card, item.isDefeated && styles.defeated]}>
-      <Text style={styles.title}>{item.title}</Text>
-      <Text style={styles.tierIcon}>
-        {item.tier === 'mini' && '🧩'}
-        {item.tier === 'elite' && '🔥'}
-        {item.tier === 'mega' && '👑'}
-      </Text>
-      <Text style={styles.desc}>{item.description}</Text>
-      <Progress.Bar
-        progress={Math.min(1, item.progress / 100)}
-        height={12}
-        borderRadius={10}
-        color={item.isDefeated ? '#4caf50' : theme.accent}
-        borderWidth={0}
-        unfilledColor="#1a1a1a"
-      />
-      <Text style={styles.progressText}>
-        {`${item.progress}% ${item.isDefeated ? '✅ Defeated' : ''}`}
-      </Text>
+      <View style={styles.headerRow}>
+        <Image
+          source={getBossImage(item.tier)}
+          style={styles.bossImage}
+          resizeMode="contain"
+        />
+        <View style={styles.textBlock}>
+          <Text style={styles.title}>{item.title}</Text>
+          <Text style={styles.desc}>{item.description}</Text>
+        </View>
+      </View>
+
+<View style={styles.progressBarContainer}>
+  <Progress.Bar
+    progress={Math.min(1, item.progress / 100)}
+    height={12}  // larger height
+    borderRadius={12}
+    width={null} // makes it flex
+    color={item.isDefeated ? '#4caf50' : theme.accent}
+    borderWidth={0}
+    unfilledColor="#1a1a1a"
+  />
+</View>
+<Text style={styles.progressText}>
+  {`${item.progress}% ${item.isDefeated ? '✅ Defeated' : ''}`}
+</Text>
+
     </View>
   );
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>👾 Boss Quests</Text>
+      <Text style={styles.header}>Boss Quests</Text>
       <FlatList
         data={bosses}
         keyExtractor={(item) => item.id}
@@ -106,20 +128,19 @@ export default function BossQuestScreen() {
         contentContainerStyle={{ paddingBottom: 40 }}
       />
       <TouchableOpacity
-  style={styles.addButton}
-  onPress={async () => {
-    const stored = await AsyncStorage.getItem('bosses');
-    const currentBosses = stored ? JSON.parse(stored) : [];
-    if (currentBosses.length >= 6) {
-      Alert.alert('⚠️ Limit Reached', 'You can only have up to 6 bosses at a time.');
-      return;
-    }
-    navigation.navigate('CreateBossScreen');
-  }}
->
-  <Text style={styles.addButtonText}>+ Add Boss</Text>
-</TouchableOpacity>
-
+        style={styles.addButton}
+        onPress={async () => {
+          const stored = await AsyncStorage.getItem('bosses');
+          const currentBosses = stored ? JSON.parse(stored) : [];
+          if (currentBosses.length >= 6) {
+            Alert.alert('⚠️ Limit Reached', 'You can only have up to 6 bosses at a time.');
+            return;
+          }
+          navigation.navigate('CreateBossScreen');
+        }}
+      >
+        <Text style={styles.addButtonText}>+ Add Boss</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -128,11 +149,14 @@ const makeStyles = (theme: typeof import('../utils/themes').themes.default) => {
   const addButtonBg = `${theme.accent}22`;
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.background, padding: 20, paddingTop: 60 },
-    header: { fontSize: 24, color: theme.accent, fontWeight: 'bold', marginBottom: 16 },
+    header: { fontSize: 24, color: theme.accent, fontWeight: 'bold', marginBottom: 16, textAlign: 'center', alignSelf: 'center'},
     card: { backgroundColor: theme.background, borderRadius: 10, padding: 16, marginBottom: 16 },
     defeated: { borderColor: '#4caf50', borderWidth: 1, opacity: 0.6 },
-    title: { fontSize: 18, color: theme.accent, marginBottom: 6 },
-    desc: { color: theme.text, marginBottom: 8 },
+    headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+    bossImage: { width: 48, height: 48, marginRight: 12 },
+    textBlock: { flex: 1 },
+    title: { fontSize: 18, color: theme.accent, marginBottom: 4 },
+    desc: { color: theme.text, marginBottom: 4 },
     progressText: { marginTop: 4, fontSize: 12, color: '#aaa' },
     addButton: {
       backgroundColor: addButtonBg,
@@ -144,6 +168,9 @@ const makeStyles = (theme: typeof import('../utils/themes').themes.default) => {
       marginTop: 10,
     },
     addButtonText: { color: theme.accent, fontWeight: '600' },
-    tierIcon: { fontSize: 18, marginBottom: 6 },
+    progressBarContainer: {
+  width: '100%',
+  marginTop: 8,
+},
   });
 };
