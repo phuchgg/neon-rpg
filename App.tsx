@@ -1,8 +1,8 @@
 import 'react-native-gesture-handler'; // ✅ Must be FIRST import
-import React from 'react';
+import React, {useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { StyleSheet } from 'react-native';
+import { StyleSheet,  } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler'; // ✅ Required root view
 import ClassSelectScreen from './screens/ClassSelectScreen';
 import TaskScreen from './screens/TaskScreen';
@@ -18,10 +18,33 @@ import ClassQuestScreen from './screens/ClassQuestScreen';
 import ActivityHistoryScreen from './screens/ActivityHistoryScreen';
 import QuestJournalScreen from './screens/QuestJournalScreen';
 import LeaderboardScreen from './screens/LeaderboardScreen'
+import { Asset } from 'expo-asset';
+import * as SplashScreen from 'expo-splash-screen';
+import { PetImageMap, BadgeImageMap } from './utils/AssetManager'; // Adjust path
+
+const preloadAssets = async () => {
+  const images = [
+    ...Object.values(PetImageMap),
+    ...Object.values(BadgeImageMap),
+  ];
+
+  const cacheImages = images.map((img) => Asset.fromModule(img).downloadAsync());
+  await Promise.all(cacheImages);
+};
+
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  useEffect(() => {
+    const load = async () => {
+      await SplashScreen.preventAutoHideAsync();
+      await preloadAssets();
+      await SplashScreen.hideAsync();
+    };
+    load();
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>

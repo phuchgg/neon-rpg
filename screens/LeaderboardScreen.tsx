@@ -5,6 +5,10 @@ import { useTheme } from '../contexts/ThemeContext';
 import { XPManager } from '../utils/XPManager';
 import { useFocusEffect } from '@react-navigation/native';
 import LottieView from 'lottie-react-native';
+import AssetManager from '../utils/AssetManager';
+import { Image } from 'react-native';
+import { PlayerClass } from '../utils/type'; // if it's external
+import { ClassAvatarMap } from '../utils/AssetManager';
 
 const podiumColors = {
   1: '#FFD700', // Vàng
@@ -12,18 +16,52 @@ const podiumColors = {
   3: '#CD7F32', // Đồng
 };
 
+type Player = {
+  id: string;
+  name: string;
+  xp: number;
+  tasksCompleted: number;
+  bossesDefeated: number;
+  playerClass?: PlayerClass | null; // make it optional or nullable
+};
+
+
+
 export default function LeaderboardScreen() {
   const { theme } = useTheme();
   const styles = makeStyles(theme);
-  const [players, setPlayers] = useState<any[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
+
   const [showGlow, setShowGlow] = useState(false);
+
+  const validClasses: PlayerClass[] = ['ghostrunner', 'netcrasher', 'synthmancer'];
+
+const getAvatar = (playerClass: string | undefined | null): any => {
+  if (typeof playerClass !== 'string') return null;
+  return ClassAvatarMap[playerClass.toLowerCase()] ?? null;
+};
+
+
 
   const loadData = async () => {
     const simPlayers = JSON.parse(await AsyncStorage.getItem('simPlayers') || '[]');
     const xp = await XPManager.getXp();
 
     const progress = JSON.parse(await AsyncStorage.getItem('userMonthlyProgress') || '{"tasksCompleted":0,"bossesDefeated":0,"monthlyXp":0}');
-const user = { id: 'me', name: 'Max', xp: progress.monthlyXp, tasksCompleted: progress.tasksCompleted, bossesDefeated: progress.bossesDefeated };
+const storedClass = await AsyncStorage.getItem('playerClass');
+const safeClass = validClasses.includes(storedClass as PlayerClass)
+  ? (storedClass as PlayerClass)
+  : 'ghostrunner'; // fallback if corrupted or missing
+
+const user = {
+  id: 'me',
+  name: 'Max',
+  playerClass: safeClass,
+  xp: progress.monthlyXp,
+  tasksCompleted: progress.tasksCompleted,
+  bossesDefeated: progress.bossesDefeated,
+};
+
 
     const combined = [...simPlayers, user];
     combined.sort((a, b) => {
@@ -71,27 +109,49 @@ const user = { id: 'me', name: 'Max', xp, ...progress };
     }, [])
   );
 
-  const renderPlayer = ({ item, index }: { item: any; index: number }) => {
-    const isPodium = index < 3;
-    const podiumColor = isPodium ? podiumColors[index + 1] : null;
 
-    return (
-      <View style={[
-        styles.row,
-        isPodium && {
-          borderColor: podiumColor,
-          borderWidth: 2,
-          shadowColor: podiumColor,
-          shadowOpacity: 0.8,
-          shadowRadius: 10,
-        }
-      ]}>
-        <Text style={[styles.rank, isPodium && { color: podiumColor }]}>{index + 1}.</Text>
+
+  const renderPlayer = ({ item, index }: { item: Player; index: number }) => {
+  const isPodium = index < 3;
+  const podiumColor = isPodium ? podiumColors[index + 1] : theme.accent;
+
+  const avatarSrc = getAvatar(item.playerClass);
+
+  return (
+    <View style={[
+      styles.row,
+      isPodium && {
+        borderColor: podiumColor,
+        shadowColor: podiumColor,
+        shadowOpacity: 0.6,
+        shadowRadius: 10,
+        borderWidth: 2,
+      }
+    ]}>
+      <Text style={[styles.rank, { color: podiumColor }]}>{index + 1}</Text>
+    
+      <View style={styles.avatarContainer}>
+  {avatarSrc ? (
+    <Image
+      source={avatarSrc}
+      style={styles.avatarImage}
+      resizeMode="contain"
+    />
+  ) : (
+    <Text style={styles.avatarFallback}>👤</Text>
+  )}
+</View>
+
+      <View style={{ flex: 1 }}>
         <Text style={styles.name}>{item.name}</Text>
-        <Text style={styles.stats}>🧬 {item.xp} XP | ✅ {item.tasksCompleted} tasks | 👑 {item.bossesDefeated} bosses</Text>
+        <Text style={styles.stats}>
+          🧬 {item.xp} XP | ✅ {item.tasksCompleted} tasks | 👑 {item.bossesDefeated} bosses
+        </Text>
       </View>
-    );
-  };
+    </View>
+  );
+};
+
 
   return (
     <View style={styles.container}>
@@ -141,4 +201,45 @@ const makeStyles = (theme: typeof import('../utils/themes').themes.default) =>
       height: 200,
       zIndex: 10,
     },
+    avatarContainer: {
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  backgroundColor: '#1a1a2e',
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginHorizontal: 10,
+  borderWidth: 1,
+  borderColor: '#444',
+  shadowColor: '#000',
+  shadowOpacity: 0.3,
+  shadowRadius: 4,
+},
+
+avatar: {
+  fontSize: 20,
+},
+avatarContainer: {
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  backgroundColor: '#1a1a2e',
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginRight: 10,
+  overflow: 'hidden',
+  borderWidth: 1,
+  borderColor: '#444',
+},
+
+avatarImage: {
+  width: 36,
+  height: 36,
+},
+
+avatarFallback: {
+  fontSize: 20,
+  color: '#ccc',
+},
+
   });

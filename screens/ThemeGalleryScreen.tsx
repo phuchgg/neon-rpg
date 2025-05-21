@@ -12,7 +12,7 @@ const themeList = Object.entries(themes) as [keyof typeof themes, typeof themes.
 
 const costMap: Record<string, number> = {
   default: 0,
-  neon_theme: 1000,
+  jade_echo: 1000,
   fire_red: 1200,
   nightwave: 1300,
   ice_pulse: 1400,
@@ -21,7 +21,7 @@ const costMap: Record<string, number> = {
 
 const themePreviewMap: Record<string, { colors: string[] }> = {
   default: { colors: ['#0d0c1d', '#fefefe', '#00f9ff'] },
-  neon_theme: { colors: ['#001b0f', '#00ffcc', '#39ff14'] },
+  jade_echo: { colors: ['#001b0f', '#00ffcc', '#39ff14'] },
   fire_red: { colors: ['#1a0000', '#ffe0e0', '#ff1a1a'] },
   nightwave: { colors: ['#0a0f29', '#9cd8ff', '#4f9bff'] },
   ice_pulse: { colors: ['#011f2a', '#b0faff', '#00e0ff'] },
@@ -117,27 +117,38 @@ export default function ThemeGalleryScreen() {
           This is a preview of the theme. Imagine tasks and UI glowing like this!
         </Text>
 
-        {isUnlocked ? (
-          isActive ? (
-            <View style={styles.equipTag}>
-              <Text style={styles.equippedText}>✅ Equipped</Text>
-            </View>
-          ) : (
-            <TouchableOpacity onPress={() => handleEquip(key)} style={styles.equipButton}>
-              <Text style={styles.equipText}>🎨 Equip Theme</Text>
-            </TouchableOpacity>
-          )
-        ) : (
-          <TouchableOpacity
-            onPress={() => confirmUnlock(key, cost)}
-            disabled={totalXpBank < cost}
-            style={[styles.equipButton, totalXpBank < cost && { backgroundColor: '#333' }]}
-          >
-            <Text style={[styles.equipText, totalXpBank < cost && { color: '#777' }]}>
-              🔓 Unlock & Equip
-            </Text>
-          </TouchableOpacity>
-        )}
+        {key === 'default' ? (
+  isActive ? (
+    <View style={styles.equipTag}>
+      <Text style={styles.equippedText}>Equipped</Text>
+    </View>
+  ) : (
+    <TouchableOpacity onPress={() => handleEquip(key)} style={styles.equipButton}>
+      <Text style={styles.equipText}>Equip Theme</Text>
+    </TouchableOpacity>
+  )
+) : isUnlocked ? (
+  isActive ? (
+    <View style={styles.equipTag}>
+      <Text style={styles.equippedText}>Equipped</Text>
+    </View>
+  ) : (
+    <TouchableOpacity onPress={() => handleEquip(key)} style={styles.equipButton}>
+      <Text style={styles.equipText}>Equip Theme</Text>
+    </TouchableOpacity>
+  )
+) : (
+  <TouchableOpacity
+    onPress={() => confirmUnlock(key, cost)}
+    disabled={totalXpBank < cost}
+    style={[styles.equipButton, totalXpBank < cost && { backgroundColor: '#333' }]}
+  >
+    <Text style={[styles.equipText, totalXpBank < cost && { color: '#777' }]}>
+      🔓 Unlock & Equip
+    </Text>
+  </TouchableOpacity>
+)}
+
 
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backLink}>← Back to Store</Text>

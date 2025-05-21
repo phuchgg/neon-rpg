@@ -48,3 +48,4 @@ export interface Npc {
 }
 
 export type ClassType = 'ghostrunner' | 'netcrasher' | 'synthmancer';
+export type PlayerClass = 'ghostrunner' | 'netcrasher' | 'synthmancer';

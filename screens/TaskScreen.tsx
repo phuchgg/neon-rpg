@@ -38,8 +38,8 @@ const LAST_SIMULATE_TIME_KEY = 'lastSimulatedTime';
 export const getBadgeImage = (badgeId: string | null) => {
   if (!badgeId) return null;
 
-  const key = badgeId.replace('badge_', ''); 
-  const formattedKey = key.charAt(0).toUpperCase() + key.slice(1); 
+  const key = badgeId.replace('badge_', '');
+  const formattedKey = key.charAt(0).toUpperCase() + key.slice(1);
 
   return AssetManager.Rewards[formattedKey] || null;
 };
@@ -72,25 +72,25 @@ export default function TaskScreen() {
 
   const handleXpGain = async (amount: number) => {
     const getPetBonus = () => {
-  if (equippedPet === 'pet_cyberfox') return 0.05;
-  if (equippedPet === 'pet_nightwave') return 0.03;
-  return 0;
-};
+      if (equippedPet === 'pet_cyberfox') return 0.05;
+      if (equippedPet === 'pet_nightwave') return 0.03;
+      return 0;
+    };
 
-const bonusMultiplier = getPetBonus();
-const finalXp = Math.floor(amount * (1 + bonusMultiplier));
+    const bonusMultiplier = getPetBonus();
+    const finalXp = Math.floor(amount * (1 + bonusMultiplier));
     await XPManager.addXp(amount);
     const updatedXp = await XPManager.getXp();
     const updatedLevel = await XPManager.getLevel();
-  
+
     setXp(updatedXp);
     setLevel(updatedLevel);
 
-     // Cộng dồn XP tháng
+    // Cộng dồn XP tháng
     await updateUserMonthlyProgress(0, 0, amount);
-  
+
     if (amount > 0) triggerXpAnimation(amount);
-  
+
     if (updatedLevel > level) {
       setShowLottie(true);
       setTimeout(() => {
@@ -99,64 +99,74 @@ const finalXp = Math.floor(amount * (1 + bonusMultiplier));
       }, 2000);
     }
   };
-  
+
 
 
 
   const clearAllGameData = async () => {
-    try {
-      const allKeys = await AsyncStorage.getAllKeys();
-  
-      // Known keys (static)
-      const staticKeys = [
-        'rpgSaveData',
-        'xp',
-        'level',
-        'tasks',
-        'bosses',
-        'quests',
-        'streakCount',
-        'lastActiveDate',
-        'bossHistory',
-        'playerClass',
-        'unlockedRewards',
-        'equippedCosmetics',
-        'questHistory',
-        'questStreak',
-        'lastQuestDate',
-        'edgewalkerUnlocked',
-      ];
-  
-      // Dynamically catch prefixes (future-proof)
-      const dynamicPrefixes = [
-        'tasks_',
-        'bosses_',
-        'quests_',
-        'activityHistory',
-        'classStreak_',
-        'rewardStore_',
-        'cosmetics_',
-      ];
-  
-      const dynamicKeys = allKeys.filter((key) =>
-        dynamicPrefixes.some((prefix) => key.startsWith(prefix))
-      );
-  
-      const keysToRemove = [...staticKeys, ...dynamicKeys];
-  
-      if (keysToRemove.length > 0) {
-        await AsyncStorage.multiRemove(keysToRemove);
-        setEquippedBadge(null);
-        Alert.alert('🗑️ Data Cleared', `${keysToRemove.length} keys removed. All game data wiped.`);
-        console.log('🗑️ AsyncStorage game data cleared:', keysToRemove);
-      } else {
-        Alert.alert('✅ Nothing to clear', 'No game data found in AsyncStorage.');
-      }
-    } catch (error) {
-      console.error('Error clearing game data:', error);
-      Alert.alert('❌ Error', 'Failed to clear data. Check console.');
+  try {
+    const allKeys = await AsyncStorage.getAllKeys();
+
+    // All known fixed keys in the system
+    const staticKeys = [
+      'rpgSaveData',
+      'xp',
+      'level',
+      'tasks',
+      'bosses',
+      'quests',
+      'streakCount',
+      'lastActiveDate',
+      'bossHistory',
+      'playerClass',
+      'unlockedRewards',
+      'equippedCosmetics',
+      'questHistory',
+      'questStreak',
+      'lastQuestDate',
+      'edgewalkerUnlocked',
+      'equippedBadge',
+      'equippedHud',
+      'equippedPet',
+      'simPlayers',
+      'userMonthlyProgress',
+      'lastSimulatedTime',
+    ];
+
+    // Prefixes to catch all dynamic/generated keys
+    const dynamicPrefixes = [
+      'tasks_',
+      'bosses_',
+      'quests_',
+      'activityHistory',
+      'classStreak_',
+      'rewardStore_',
+      'cosmetics_',
+      'classQuest_',     // daily class quest keys
+      'classQuest_',     // completion flags (_done)
+    ];
+
+    // Find keys that match any of the dynamic prefixes
+    const dynamicKeys = allKeys.filter((key) =>
+      dynamicPrefixes.some((prefix) => key.startsWith(prefix))
+    );
+
+    const keysToRemove = [...new Set([...staticKeys, ...dynamicKeys])];
+
+    if (keysToRemove.length > 0) {
+      await AsyncStorage.multiRemove(keysToRemove);
+      setEquippedBadge(null);
+      Alert.alert('🗑️ Data Cleared', `${keysToRemove.length} keys removed. All game data wiped.`);
+      console.log('🧹 Cleared keys:', keysToRemove);
+    } else {
+      Alert.alert('✅ Nothing to clear', 'No game data found in AsyncStorage.');
     }
-  };
+  } catch (error) {
+    console.error('Error clearing game data:', error);
+    Alert.alert('❌ Error', 'Failed to clear data. Check console.');
+  }
+};
+
 
   const resetBosses = async () => {
     await AsyncStorage.setItem('bosses', JSON.stringify(initialBossesTyped));
@@ -204,13 +214,13 @@ const finalXp = Math.floor(amount * (1 + bonusMultiplier));
     const json = await AsyncStorage.getItem('bosses');
     if (json) setBosses(JSON.parse(json));
   };
-  
+
   useFocusEffect(
     useCallback(() => {
       const checkSimulateCooldown = async () => {
         const now = Date.now();
         const lastSimulated = parseInt(await AsyncStorage.getItem(LAST_SIMULATE_TIME_KEY) || '0');
-  
+
         if (now - lastSimulated >= 2 * 60 * 60 * 1000) {
           console.log('🕒 Simulating player progress...');
           await simulateDailyProgress();
@@ -224,11 +234,11 @@ const finalXp = Math.floor(amount * (1 + bonusMultiplier));
         await loadTasks();
         await loadProgress();
       };
-  
+
       checkSimulateCooldown();
     }, [])
   );
-  
+
 
   const loadTasks = async () => {
     const json = await AsyncStorage.getItem('tasks');
@@ -252,17 +262,17 @@ const finalXp = Math.floor(amount * (1 + bonusMultiplier));
   const updateUserMonthlyProgress = async (tasks = 0, bosses = 0, xpGain = 0) => {
     const stored = await AsyncStorage.getItem(USER_MONTHLY_PROGRESS_KEY);
     const progress = stored ? JSON.parse(stored) : { tasksCompleted: 0, bossesDefeated: 0, monthlyXp: 0 };
-  
+
     const updated = {
       tasksCompleted: progress.tasksCompleted + tasks,
       bossesDefeated: progress.bossesDefeated + bosses,
       monthlyXp: progress.monthlyXp + xpGain,
     };
-  
+
     await AsyncStorage.setItem(USER_MONTHLY_PROGRESS_KEY, JSON.stringify(updated));
   };
-  
-  
+
+
 
   useEffect(() => {
     const initializeSimPlayers = async () => {
@@ -274,37 +284,41 @@ const finalXp = Math.floor(amount * (1 + bonusMultiplier));
     };
     initializeSimPlayers();
   }, []);
-  
+
 
   useEffect(() => {
     const loadEquippedBadge = async () => {
       const equipped = await AsyncStorage.getItem('equippedBadge');
       setEquippedBadge(equipped || null);
     };
-  
+
     eventBus.on('cosmeticUpdated', loadEquippedBadge);
-  
+
     loadEquippedBadge(); // load once on mount
-  
+
     return () => {
       eventBus.off('cosmeticUpdated', loadEquippedBadge);
     };
   }, []);
-  
-useEffect(() => {
-  const loadEquippedPet = async () => {
-    const pet = await AsyncStorage.getItem('equippedPet');
+
+  useEffect(() => {
+  const loadEquippedCosmetics = async () => {
+    const { badge, pet, hud } = await CosmeticManager.getEquippedCosmetics();
+    setEquippedBadge(badge || null);
     setEquippedPet(pet || null);
+    setEquippedHud(hud || null);
   };
 
-  eventBus.on('cosmeticUpdated', loadEquippedPet);
+  loadEquippedCosmetics();
 
-  loadEquippedPet(); // load once
+  eventBus.on('cosmeticUpdated', loadEquippedCosmetics);
 
   return () => {
-    eventBus.off('cosmeticUpdated', loadEquippedPet);
+    eventBus.off('cosmeticUpdated', loadEquippedCosmetics);
   };
 }, []);
+
+
 
 
   const addTask = () => {
@@ -373,13 +387,23 @@ useEffect(() => {
           setShowBossVictory(true);
           await updateQuestProgress('boss');
           await handleXpGain(50);
-        
+
           setTimeout(() => setShowBossVictory(false), 1000);
           Alert.alert('👑 Boss Defeated!', `"${b.title}" has been conquered! +50 XP`);
+          // ✅ Add to activity history timeline
+          const activityHistory = JSON.parse(await AsyncStorage.getItem('activityHistory') || '[]');
+          activityHistory.push({
+            date: new Date().toISOString(),
+            type: 'boss',
+            description: `Defeated boss: ${b.title}`,
+            details: { bossId: b.id },
+          });
+          await AsyncStorage.setItem('activityHistory', JSON.stringify(activityHistory));
+
           await updateUserMonthlyProgress(0, 1);
         }
-        
-        
+
+
         const defeatedCount = bosses.filter((b) => b.isDefeated).length + 1; // +1 includes current defeat
         console.log('💥 Total Defeated Bosses:', defeatedCount);
 
@@ -508,134 +532,132 @@ useEffect(() => {
       )}
       <View style={{ marginBottom: 20 }}>
 
-  {/* Title: Daily Missions */}
-<Text style={{
-  fontSize: 24,
-  color: theme.text,
-  fontWeight: 'bold',
+        {/* Row: Pet | Streak | Badge */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 10,
+            paddingHorizontal: 20,
+          }}
+        >
+          {/* Pet Container or Placeholder */}
+          <View style={{ width: 40, height: 40, marginRight: 12, justifyContent: 'center', alignItems: 'center' }}>
+            {equippedPet ? (
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 50,
+                  overflow: 'hidden',
+                  backgroundColor: `${theme.accent}22`,
+                  borderWidth: 1,
+                  borderColor: theme.accent,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  shadowColor: theme.accent,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.8,
+                  shadowRadius: 10,
+                  padding: 4,
+            
+                }}
+              >
+                <Image
+                  source={AssetManager.Pets[equippedPet.replace('pet_', '')]}
+                  style={{ width: 30, height: 30 }}
+                  resizeMode="contain"
+                />
+              </View>
+            ) : null}
+          </View>
+
+          {/* Streak Text */}
+          <Text
+            style={{
+              color: '#ff4d6d',
+              fontSize: 16,
+              fontWeight: '600',
+              textAlign: 'center',
+              marginHorizontal: 12,
+            }}
+          >
+            🔥 Streak: {streak} days
+          </Text>
+
+          {/* Badge Container or Placeholder */}
+          <View style={{ width: 40, height: 40, marginLeft: 12, justifyContent: 'center', alignItems: 'center' }}>
+            {equippedBadge && equippedBadge !== 'badge_default' ? (
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 50,
+                  overflow: 'hidden',
+                  backgroundColor: `${theme.accent}22`,
+                  borderWidth: 1,
+                  borderColor: theme.accent,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  shadowColor: theme.accent,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.8,
+                  shadowRadius: 10,
+                  padding: 4,
+                }}
+              >
+                <Image
+                  source={getBadgeImage(equippedBadge)}
+                  style={{ width: 30, height: 30 }}
+                  resizeMode="contain"
+                />
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+
+        {/* Level Text */}
+        <Text style={{
+  color: theme.accent,
+  fontSize: 16,
+  fontWeight: '600',
   textAlign: 'center',
-  marginBottom: 10,
+  marginBottom: 6,
+  letterSpacing: 0.5,
 }}>
-  🎯 Daily Missions
+  Level {level} — {xp}/{getXpForLevel(level)} XP
 </Text>
 
-{/* Row: Pet | Streak | Badge */}
-<View style={{
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  marginBottom: 10,
-  paddingHorizontal: 20,
-}}>
-  {/* Pet Container */}
-  {equippedPet && (
-    <View style={{
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      overflow: 'hidden',
-      backgroundColor: '#ffffff10', // semi-transparent glass
-      borderWidth: 1,
-      borderColor: theme.accent,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 12,
-      shadowColor: theme.accent,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.8,
-      shadowRadius: 10,
-    }}>
-      <Image
-        source={AssetManager.Pets[equippedPet.replace('pet_', '')]}
-        style={{
-          width: 30,
-          height: 30,
-        }}
-        resizeMode="contain"
-      />
-    </View>
-  )}
+        {/* XP Progress Bar */}
+        <View style={{
+          position: 'relative',
+          width: '100%',
+          height: 16,
+          justifyContent: 'center',
+        }}>
+          <Progress.Bar
+            progress={xp / getXpForLevel(level)}
+            width={null}
+            height={16}
+            borderRadius={12}
+            color={theme.accent}
+            unfilledColor="#1a1a1a"
+            borderWidth={0}
+          />
+          <View style={{
+            ...StyleSheet.absoluteFillObject,
+            borderRadius: 12,
+            backgroundColor: `${theme.accent}44`,
+            shadowColor: theme.accent,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.8,
+            shadowRadius: 10,
+          }} />
+        </View>
 
-  {/* Streak Text */}
-  <Text style={{
-    color: '#ff4d6d',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginHorizontal: 12,
-  }}>
-    🔥 Streak: {streak} days
-  </Text>
-
-  {/* Badge Container */}
-  {equippedBadge && equippedBadge !== 'badge_default' && (
-    <View style={{
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      overflow: 'hidden',
-      backgroundColor: '#ffffff10', // glassmorphism effect
-      borderWidth: 1,
-      borderColor: theme.accent,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginLeft: 12,
-      shadowColor: theme.accent,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.8,
-      shadowRadius: 10,
-    }}>
-      <Image
-        source={getBadgeImage(equippedBadge)}
-        style={{
-          width: 30,
-          height: 30,
-        }}
-        resizeMode="contain"
-      />
-    </View>
-  )}
-</View>
-
-  {/* Level Text */}
-  <Text style={{
-    color: theme.accent,
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 6,
-  }}>
-    Level {level} - XP: {xp}/{getXpForLevel(level)}
-  </Text>
-
-  {/* XP Progress Bar */}
-  <View style={{
-    position: 'relative',
-    width: '100%',
-    height: 16,
-    justifyContent: 'center',
-  }}>
-    <Progress.Bar
-      progress={xp / getXpForLevel(level)}
-      width={null}
-      height={16}
-      borderRadius={12}
-      color={theme.accent}
-      unfilledColor="#1a1a1a"
-      borderWidth={0}
-    />
-    <View style={{
-      ...StyleSheet.absoluteFillObject,
-      borderRadius: 12,
-      backgroundColor: `${theme.accent}44`,
-      shadowColor: theme.accent,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.8,
-      shadowRadius: 10,
-    }} />
-  </View>
-
-</View>
+      </View>
 
 
 
@@ -664,57 +686,57 @@ useEffect(() => {
           style={styles.lottie}
         />
       )}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-<TouchableOpacity onPress={() => navigation.navigate('BossMapScreen')} style={styles.navButton}>
-  <Image source={AssetManager.Buttons.BossMap} style={styles.iconImage} />
-  <Text style={styles.navButtonText}>Boss Map</Text>
-</TouchableOpacity>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+        <TouchableOpacity onPress={() => navigation.navigate('BossMapScreen')} style={styles.navButton}>
+          <Image source={AssetManager.Buttons.BossMap} style={styles.iconImage} />
+          <Text style={styles.navButtonText}>Boss Map</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('RewardStoreScreen')} style={styles.navButton}>
-    <Image source={AssetManager.Buttons.RewardStore} style={styles.iconImage} />
-    <Text style={styles.navButtonText}>Reward Store</Text>
-  </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('RewardStoreScreen')} style={styles.navButton}>
+          <Image source={AssetManager.Buttons.RewardStore} style={styles.iconImage} />
+          <Text style={styles.navButtonText}>Reward Store</Text>
+        </TouchableOpacity>
 
-  <TouchableOpacity onPress={() => navigation.navigate('RoleShopScreen')} style={styles.navButton}>
-    <Image source={AssetManager.Buttons.RoleShop} style={styles.iconImage} />
-    <Text style={styles.navButtonText}>Role Shop</Text>
-  </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('RoleShopScreen')} style={styles.navButton}>
+          <Image source={AssetManager.Buttons.RoleShop} style={styles.iconImage} />
+          <Text style={styles.navButtonText}>Role Shop</Text>
+        </TouchableOpacity>
       </View>
       <View style={styles.navRow}>
-  <TouchableOpacity onPress={() => navigation.navigate('QuestJournalScreen')} style={styles.navButton}>
-    <Image source={AssetManager.Buttons.QuestJournal} style={styles.iconImage} />
-    <Text style={styles.navButtonText}>Quest Journal</Text>
-  </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('QuestJournalScreen')} style={styles.navButton}>
+          <Image source={AssetManager.Buttons.QuestJournal} style={styles.iconImage} />
+          <Text style={styles.navButtonText}>Quest Journal</Text>
+        </TouchableOpacity>
 
-  <TouchableOpacity onPress={() => navigation.navigate('ActivityHistoryScreen')} style={styles.navButton}>
-    <Image source={AssetManager.Buttons.History} style={styles.iconImage} />
-    <Text style={styles.navButtonText}>History</Text>
-  </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('ActivityHistoryScreen')} style={styles.navButton}>
+          <Image source={AssetManager.Buttons.History} style={styles.iconImage} />
+          <Text style={styles.navButtonText}>History</Text>
+        </TouchableOpacity>
 
-  <TouchableOpacity onPress={() => navigation.navigate('ClassQuestScreen')} style={styles.navButton}>
-    <Image source={AssetManager.Buttons.ClassQuest} style={styles.iconImage} />
-    <Text style={styles.navButtonText}>Class Quests</Text>
-  </TouchableOpacity>
-</View>
+        <TouchableOpacity onPress={() => navigation.navigate('ClassQuestScreen')} style={styles.navButton}>
+          <Image source={AssetManager.Buttons.ClassQuest} style={styles.iconImage} />
+          <Text style={styles.navButtonText}>Class Quests</Text>
+        </TouchableOpacity>
+      </View>
 
 
 
 
       <View style={styles.inputContainer}>
-<View style={{ flex: 1 }}>
-  <TextInput
-    style={[
-      styles.input,
-      inputFocused && styles.inputFocused
-    ]}
-    placeholder="Type your task..."
-    placeholderTextColor="#AAAAAA"
-    value={newTask}
-    onChangeText={setNewTask}
-    onFocus={() => setInputFocused(true)}
-    onBlur={() => setInputFocused(false)}
-  />
-</View>
+        <View style={{ flex: 1 }}>
+          <TextInput
+            style={[
+              styles.input,
+              inputFocused && styles.inputFocused
+            ]}
+            placeholder="Type your task..."
+            placeholderTextColor="#AAAAAA"
+            value={newTask}
+            onChangeText={setNewTask}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
+          />
+        </View>
 
 
         <TouchableOpacity onPress={addTask} style={styles.addButton}>
@@ -722,26 +744,26 @@ useEffect(() => {
         </TouchableOpacity>
       </View>
       <View style={styles.bossAssignContainer}>
-  <Text style={styles.bossAssignLabel}>Assign Task to Boss</Text>
-  <CrossPlatformPicker
-    selectedValue={selectedBossId}
-    onValueChange={(value) => setSelectedBossId(value)}
-    theme={theme}
-    style={styles.bossAssignPicker}
-    options={[
-  { label: 'No Boss', value: '', icon: null },
-  ...bosses
-    .filter((boss) => !boss.isDefeated && isBossUnlocked(boss, bosses))
-    .sort((a, b) => a.title.localeCompare(b.title))
-    .map((boss) => ({
-      label: boss.title,
-      value: boss.id,
-      icon: AssetManager.BossIcons[boss.tier] || AssetManager.BossIcons.mini,
-    })),
-]}
+        <Text style={styles.bossAssignLabel}>Assign Task to Boss</Text>
+        <CrossPlatformPicker
+          selectedValue={selectedBossId}
+          onValueChange={(value) => setSelectedBossId(value)}
+          theme={theme}
+          style={styles.bossAssignPicker}
+          options={[
+            { label: 'No Boss', value: '', icon: null },
+            ...bosses
+              .filter((boss) => !boss.isDefeated && isBossUnlocked(boss, bosses))
+              .sort((a, b) => a.title.localeCompare(b.title))
+              .map((boss) => ({
+                label: boss.title,
+                value: boss.id,
+                icon: AssetManager.BossIcons[boss.tier] || AssetManager.BossIcons.mini,
+              })),
+          ]}
 
-  />
-</View>
+        />
+      </View>
 
 
       <FlatList
@@ -751,7 +773,10 @@ useEffect(() => {
           <SwipeToDeleteTaskRow
             item={item}
             bosses={bosses}
-            onToggleTask={toggleTask}
+            onToggleTask={async (taskId) => {
+              await toggleTask(taskId);
+              await loadBosses();
+            }}
             onDeleteTask={(id) => {
               const updated = tasks.filter((t) => t.id !== id);
               setTasks(updated);
@@ -760,12 +785,15 @@ useEffect(() => {
             theme={theme}
           />
         )}
-        contentContainerStyle={{paddingBottom: 40}}
-        style={{flex:1}}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        style={{ flex: 1 }}
       />
       {equippedHud && (
         <View style={{
-          position: 'absolute', top: 70, right: 20, backgroundColor: '#1a1a2e', padding: 8,
+          position: 'absolute', top: 70, right: 20, backgroundColor: '#1a1a2e', padding: 8, shadowColor: theme.accent,
+shadowOpacity: 0.8,
+shadowRadius: 10,
+elevation: 5,
           borderRadius: 30, borderColor: '#00f9ff', borderWidth: 1, zIndex: 10
         }}>
           <Text style={{ fontSize: 20, color: '#fff' }}>{equippedHud === 'hud_neon' ? '🖥️' : '🧬'}</Text>
@@ -778,18 +806,18 @@ useEffect(() => {
       )}
 
       {/* Nút Leaderboard 🏅 */}
-    <TouchableOpacity
-  style={styles.leaderboardButton}
-  onPress={() => navigation.navigate('LeaderboardScreen')}
->
-  <Image source={AssetManager.Buttons.Leaderboard} style={styles.leaderboardIcon} />
-</TouchableOpacity>
-    <TouchableOpacity
-  style={styles.resetButton}
-  onPress={clearAllGameData}
->
-  <Text style={styles.resetButtonText}>🗑️ Reset Game Data</Text>
-</TouchableOpacity>
+      <TouchableOpacity
+        style={styles.leaderboardButton}
+        onPress={() => navigation.navigate('LeaderboardScreen')}
+      >
+        <Image source={AssetManager.Buttons.Leaderboard} style={styles.leaderboardIcon} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.resetButton}
+        onPress={clearAllGameData}
+      >
+        <Text style={styles.resetButtonText}>🗑️ Reset Game Data</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -824,14 +852,15 @@ const makeStyles = (theme: typeof themes.default) =>
       justifyContent: 'center',
     },
     glowOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      borderRadius: 12,
-      backgroundColor: `${theme.accent}44`,
-      shadowColor: theme.accent,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.8,
-      shadowRadius: 10,
-    },
+  ...StyleSheet.absoluteFillObject,
+  borderRadius: 12,
+  backgroundColor: `${theme.accent}33`,
+  shadowColor: theme.accent,
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0.9,
+  shadowRadius: 12,
+},
+
     lottie: {
       width: 200,
       height: 200,
@@ -842,16 +871,16 @@ const makeStyles = (theme: typeof themes.default) =>
       flexDirection: 'row',
       marginBottom: 16,
     },
-   input: {
-  flex: 1,
-  backgroundColor: '#1f1f2e',
-  padding: 10,
-  color: theme.text,
-  borderRadius: 8,
-  marginRight: 8,
-  borderWidth: 1,
-  borderColor: '#2a2a3d',
-},
+    input: {
+      flex: 1,
+      backgroundColor: '#1f1f2e',
+      padding: 10,
+      color: theme.text,
+      borderRadius: 8,
+      marginRight: 8,
+      borderWidth: 1,
+      borderColor: '#2a2a3d',
+    },
     taskItem: {
       padding: 12,
       backgroundColor: '#1a1a2e', // Optional: make this theme.secondaryBackground
@@ -899,7 +928,11 @@ const makeStyles = (theme: typeof themes.default) =>
       color: '#fff',
     },
     addButton: {
-      backgroundColor: `${theme.accent}22`,
+      backgroundColor: `${theme.accent}33`,
+shadowColor: theme.accent,
+shadowOffset: { width: 0, height: 1 },
+shadowOpacity: 0.5,
+shadowRadius: 5,
       padding: 10,
       borderRadius: 8,
       marginLeft: 8,
@@ -913,7 +946,7 @@ const makeStyles = (theme: typeof themes.default) =>
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: theme.background,
-      paddingVertical: 8,
+      paddingVertical: 4,
       paddingHorizontal: 12,
       borderRadius: 10,
       borderWidth: 1,
@@ -1018,73 +1051,72 @@ const makeStyles = (theme: typeof themes.default) =>
       marginBottom: 10,
     },
     iconImage: {
-  width: 20,
-  height: 20,
-  marginRight: 6,
-  resizeMode: 'contain',
-},
-navRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  marginBottom: 16,
-},
+      width: 20,
+      height: 20,
+      marginRight: 6,
+      resizeMode: 'contain',
+    },
+    navRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
 
-leaderboardButton: {
-  position: 'absolute',
-  bottom: 30,
-  right: 20,
-  backgroundColor: '#00f9ff22',
-  padding: 6,
-  borderRadius: 30,
-  borderWidth: 1,
-  borderColor: theme.accent,
-  shadowColor: theme.accent,
-  shadowOpacity: 0.6,
-  shadowRadius: 8,
-  shadowOffset: { width: 0, height: 2 },
-  zIndex: 100,
-},
+    leaderboardButton: {
+      position: 'absolute',
+      bottom: 30,
+      right: 20,
+      backgroundColor: '#00f9ff22',
+      padding: 6,
+      borderRadius: 30,
+      borderWidth: 1,
+      borderColor: theme.accent,
+      shadowColor: theme.accent,
+      shadowOpacity: 0.7,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 0 },
+      zIndex: 100,
+    },
 
-leaderboardIcon: {
-  width: 38,
-  height: 38,
-  resizeMode: 'contain',
-},
-bossAssignContainer: {
+    leaderboardIcon: {
+      width: 38,
+      height: 38,
+      resizeMode: 'contain',
+    },
+    bossAssignContainer: {
   backgroundColor: '#222c3d',
   borderRadius: 12,
   padding: 12,
   marginBottom: 16,
   borderWidth: 1,
   borderColor: `${theme.accent}33`,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.2,
-  shadowRadius: 4,
-  elevation: 3,
+  shadowColor: theme.accent,
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0.4,
+  shadowRadius: 6,
 },
 
-bossAssignLabel: {
-  color: theme.accent,
-  fontSize: 14,
-  fontWeight: '600',
-  marginBottom: 6,
-  textAlign: 'center', // ✅ Add this line
-},
+    bossAssignLabel: {
+      color: theme.accent,
+      fontSize: 14,
+      fontWeight: '600',
+      marginBottom: 6,
+      textAlign: 'center', // ✅ Add this line
+    },
 
-bossAssignPicker: {
-  backgroundColor: '#1f2937',
-  borderRadius: 8,
-  borderWidth: 1,
-  borderColor: `${theme.accent}44`,
-},
-inputFocused: {
-  borderColor: '#585858',
+    bossAssignPicker: {
+      backgroundColor: '#1f2937',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: `${theme.accent}44`,
+    },
+    inputFocused: {
+  borderColor: theme.accent,
   shadowColor: theme.accent,
   shadowOffset: { width: 0, height: 0 },
   shadowOpacity: 0.7,
-  shadowRadius: 6,
-  elevation: 4,
+  shadowRadius: 8,
+  elevation: 5,
 },
 
   });

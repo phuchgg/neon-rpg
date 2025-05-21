@@ -10,10 +10,28 @@ export default function QuestTracker() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const { theme } = useTheme();
 
-  const loadQuests = async () => {
-    const json = await AsyncStorage.getItem('quests');
-    if (json) setQuests(JSON.parse(json));
-  };
+  const loadAllQuests = async () => {
+  const types = ['quests_Daily', 'quests_Weekly', 'quests_Event', 'quests'];
+  const all: Quest[] = [];
+
+  for (const key of types) {
+    const json = await AsyncStorage.getItem(key);
+    if (json) {
+      try {
+        const quests: Quest[] = JSON.parse(json);
+        all.push(...quests);
+      } catch (e) {
+        console.error(`❌ Error parsing ${key}:`, e);
+      }
+    }
+  }
+
+  setQuests(all);
+};
+
+
+  const loadQuests = loadAllQuests;
+
 
   useFocusEffect(
     useCallback(() => {

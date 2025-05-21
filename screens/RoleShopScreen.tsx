@@ -92,7 +92,7 @@ export default function RoleShopScreen({ navigation }: RoleShopScreenProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.accent }]}>🧬 Switch Your Role</Text>
+      <Text style={[styles.title, { color: theme.accent }]}>Switch Your Role</Text>
       <Text style={[styles.current, { color: theme.text }]}>
         Current: {currentClass || 'Unknown'} | Total XP: {totalXp}
       </Text>

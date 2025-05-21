@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     overflow: 'hidden',
   },
   taskRowContent: {

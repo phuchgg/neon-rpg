@@ -10,9 +10,10 @@ import { CosmeticManager } from '../utils/CosmeticManager';
 import { useFocusEffect } from '@react-navigation/native';
 import eventBus from '../utils/EventBus';
 import AssetManager from '../utils/AssetManager';
+import { PetImageMap, BadgeImageMap } from '../utils/AssetManager';
 
 const themePreviewMap = {
-  neon_theme: { colors: ['#001b0f', '#00ffcc', '#39ff14'] },
+  jade_echo: { colors: ['#0d1f14', '#d8ffe3', '#2aff80'] },
   fire_red: { colors: ['#1a0000', '#ffe0e0', '#ff1a1a'] },
   nightwave: { colors: ['#0a0f29', '#9cd8ff', '#4f9bff'] },
   ice_pulse: { colors: ['#011f2a', '#b0faff', '#00e0ff'] },
@@ -64,19 +65,60 @@ export default function RewardStoreScreen() {
   
   const [activeTab, setActiveTab] = useState<'theme' | 'badge' | 'pet'>('theme');
 
+  const EquipButton = ({
+  onPress,
+  isEquipped,
+  label,
+}: {
+  onPress?: () => void;
+  isEquipped: boolean;
+  label: string;
+}) => {
+  const { theme } = useTheme();
 
-  const badgeImages = useMemo(() => ({
-  badge_cyberfox: AssetManager.Rewards.Cyberfox,
-  badge_mechskull: AssetManager.Rewards.Mechskull,
-  badge_neonphoenix: AssetManager.Rewards.Neonphoenix,
-  badge_auraflame: AssetManager.Rewards.Auraflame,
-  badge_darklotus: AssetManager.Rewards.Darklotus,
-  badge_hologram: AssetManager.Rewards.Hologram,
-  badge_glowslime: AssetManager.Rewards.Glowslime,
-  badge_pixelbot: AssetManager.Rewards.Pixelbot,
-  badge_neoncat: AssetManager.Rewards.Neoncat,
-  badge_glitch: AssetManager.Rewards.GlitchBadge,
-}), []);
+  if (isEquipped) {
+    return (
+      <View
+        style={[
+          styles.equippedButton,
+          {
+            borderColor: theme.accent,
+            shadowColor: theme.accent,
+            backgroundColor: `${theme.accent}22`,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.equippedButtonText,
+            { color: `${theme.text}AA` }, // blur-style text
+          ]}
+        >
+          Equipped
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity onPress={onPress}>
+      <View
+        style={[
+          styles.equipButton,
+          {
+            borderColor: theme.accent,
+            shadowColor: theme.accent,
+            backgroundColor: `${theme.accent}33`,
+          },
+        ]}
+      >
+        <Text style={styles.equipButtonText(theme)}>{label}</Text>
+
+      </View>
+    </TouchableOpacity>
+  );
+};
+
 
   const loadData = async () => {
     const savedTotalXp = await AsyncStorage.getItem('totalXp');
@@ -107,9 +149,10 @@ export default function RewardStoreScreen() {
     }
   };
   const handleEquipPet = async (petId: string) => {
-  await CosmeticManager.setEquippedPet(petId); // ✅ use Manager
+  await CosmeticManager.setEquippedPet(petId);
+   setEquippedPet(petId);
   eventBus.emit('cosmeticUpdated');
-  Alert.alert('🐾 Pet Equipped!', `${petId} is now active.`);
+  Alert.alert('Pet Equipped!', `${petId} is now active.`);
 };
 
 
@@ -123,7 +166,7 @@ export default function RewardStoreScreen() {
       details: { themeId },
     });
   
-    Alert.alert('🎨 Theme Equipped!', `${themeId} is now active.`);
+    Alert.alert('Theme Equipped!', `${themeId} is now active.`);
   };
 
   const handleEquipHud = async (hudId: string) => {
@@ -138,10 +181,11 @@ export default function RewardStoreScreen() {
       details: { hudId },
     });
   
-    Alert.alert('🖥️ HUD Equipped!', `${hudId} is now active.`);
+    Alert.alert('HUD Equipped!', `${hudId} is now active.`);
   };
 
   useFocusEffect(useCallback(() => { loadData(); }, []));
+
 
   const handleUnlock = useCallback((rewardId: string, cost: number) => {
   const isUnlocked = unlocked.includes(rewardId);
@@ -188,12 +232,24 @@ export default function RewardStoreScreen() {
               if (reward?.type === 'badge') await CosmeticManager.setEquippedBadge(rewardId);
               if (reward?.type === 'hud') await CosmeticManager.setEquippedHud(rewardId);
 
-              const allowedThemes = ['default', 'neon_theme', 'fire_red', 'nightwave', 'ice_pulse', 'synthcore'] as const;
+              const allowedThemes = ['default', 'jade_echo', 'fire_red', 'nightwave', 'ice_pulse', 'synthcore'] as const;
               if (allowedThemes.includes(rewardId as typeof allowedThemes[number])) {
                 await setThemeByKey(rewardId as typeof allowedThemes[number]);
               }
 
+              if (!unlocked.includes(rewardId)) {
+    const updatedRewards = [...unlocked, rewardId];
+    await AsyncStorage.setItem('unlockedRewards', JSON.stringify(updatedRewards));
+    setUnlocked(updatedRewards);
+  }
+
               if (reward?.type === 'badge') setEquippedBadge(rewardId);
+              if (reward?.type === 'pet') {
+  await CosmeticManager.setEquippedPet(rewardId); // actually equip it
+  setEquippedPet(rewardId); // reflect in UI
+  eventBus.emit('cosmeticUpdated'); // make sure HUD updates too
+}
+
 
               Alert.alert('🎁 Unlocked!', `You've unlocked: ${reward?.name || rewardId}`);
             },
@@ -217,7 +273,7 @@ export default function RewardStoreScreen() {
       details: { badgeId },
     });
   
-    Alert.alert('🎖️ Badge Equipped!', `${badgeId} is now active.`);
+    Alert.alert('Badge Equipped!', `${badgeId} is now active.`);
   };
   
 
@@ -229,12 +285,31 @@ export default function RewardStoreScreen() {
   const isBadge = item.type === 'badge';
   const isActiveTheme = item.id === themeKey;
   const isActiveBadge = item.id === equippedBadge;
-  const isActiveHud = item.id === equippedHud;
+  const isActivePet = item.id === equippedPet;
 
-  const rewardImage = isBadge ? badgeImages[item.id] : null;
+const rewardImage =
+  item.type === 'badge'
+    ? BadgeImageMap[item.id]
+    : item.type === 'pet'
+    ? PetImageMap[item.id]
+    : null;
+
+
 
   return (
     <View style={[styles.card(theme), isUnlocked && styles.cardUnlocked(theme)]}>
+      {item.rarity && (
+  <Text style={{
+    fontSize: 12,
+    color: item.rarity === 'legendary' ? '#FFD700' : '#aaa',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  }}>
+    {item.rarity}
+  </Text>
+)}
+
       <View style={{ alignItems: 'center', marginTop: 8 }}>
         <Text style={[styles.rewardName, { color: theme.text, textAlign: 'center' }]}>{item.name}</Text>
         {(themePreviewMap[item.id] || hudPreviewMap[item.id]) && (
@@ -251,13 +326,18 @@ export default function RewardStoreScreen() {
         />
       )}
 
-      <Text style={[styles.cost, { color: theme.text, textAlign: 'center' }]}>
-        {item.id === 'badge_glitch'
-          ? '🔒 Unlock via 7-day Streak'
-          : !isUnlocked
-            ? `🧬 Requires ${item.cost} XP`
-            : ''}
-      </Text>
+      {!isUnlocked && item.id !== 'badge_glitch' && (
+  <Text style={[styles.cost, { color: theme.text, textAlign: 'center' }]}>
+    🧬 Requires {item.cost} XP
+  </Text>
+)}
+
+{item.id === 'badge_glitch' && (
+  <Text style={[styles.cost, { color: theme.text, textAlign: 'center' }]}>
+    🔒 Unlock via 7-day Streak
+  </Text>
+)}
+
 
 
 
@@ -269,11 +349,12 @@ export default function RewardStoreScreen() {
     totalXpBank < item.cost && styles.cyberButtonDisabled
   ]}>
     <Text style={[
-      styles.cyberButtonText,
-      totalXpBank < item.cost && styles.cyberButtonTextDisabled
-    ]}>
-      🔓 Unlock
-    </Text>
+  styles.cyberButtonText,
+  { color: theme.text },
+  totalXpBank < item.cost && styles.cyberButtonTextDisabled
+]}>
+  🔓 Unlock
+</Text>
   </View>
 </TouchableOpacity>
 
@@ -282,55 +363,82 @@ export default function RewardStoreScreen() {
         )}
 
 {isUnlocked && isTheme && (
-  isActiveTheme
-    ? <Text style={styles.cyberButtonTextEquipped}>✅ Equipped</Text>
-    : <TouchableOpacity onPress={() => handleEquipTheme(item.id)}><View style={styles.cyberButton}>
-    <Text style={styles.cyberButtonText}>🎨 Equip</Text>
+  <View style={{ marginTop: !item.id.startsWith('badge_glitch') && !item.cost ? 0 : 8 }}>
+    <EquipButton
+      onPress={() => handleEquipTheme(item.id)}
+      isEquipped={isActiveTheme}
+      label="Equip Theme"
+    />
   </View>
-  </TouchableOpacity>
 )}
 
-       <View style={{ alignItems: 'center' }}>
+        <View style={{ marginTop: !item.id.startsWith('badge_glitch') && !item.cost ? 0 : 8 }}>
         {isUnlocked && isBadge && (
-          isActiveBadge
-            ? <Text style={styles.cyberButtonTextEquipped}>✅ Equipped</Text>
-            : <TouchableOpacity onPress={() => handleEquipBadge(item.id)}><Text style={[styles.buttonText, { color: theme.accent }]}>🎖️ Equip Badge</Text></TouchableOpacity>
+          <EquipButton
+  onPress={() => handleEquipBadge(item.id)}
+  isEquipped={isActiveBadge}
+  label="Equip Badge"
+/>
+
         )}
        </View>
 
+        <View style={{ marginTop: !item.id.startsWith('badge_glitch') && !item.cost ? 0 : 8 }}>
 {isUnlocked && item.type === 'pet' && (
-  <TouchableOpacity onPress={() => handleEquipPet(item.id)}>
-    <Text style={[styles.buttonText, { color: theme.accent }]}>🐾 Equip Pet</Text>
-  </TouchableOpacity>
+  <EquipButton
+    onPress={() => handleEquipPet(item.id)}
+    isEquipped={isActivePet}
+    label="Equip Pet"
+  />
 )}
+        </View>
+
+
 
       </View>
   );
-}, [activeTab, unlocked, equippedBadge, equippedHud, themeKey, theme, badgeImages]);
+}, [activeTab, unlocked, equippedBadge, equippedHud, equippedPet, themeKey, theme]);
+
   const filteredRewards = rewards.filter((r) => r.type === activeTab);
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={{ alignItems: 'center', marginBottom: 20 }}>
-      <Text style={[styles.title, { color: theme.accent }]}>🎁 Reward Store</Text>
-      <Text style={[styles.xp, { color: theme.text }]}>Total Lifetime XP: {totalXpBank}</Text>
+      <Text style={[styles.title, { color: theme.accent }]}>Reward Store</Text>
+      <Text style={styles.xpHighlight}>
+  🧬 XP Bank: <Text style={{ color: theme.accent }}>{totalXpBank}</Text>
+</Text>
+
       </View>
 
-      <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 }}>
+      <View style={styles.tabBar}>
   {['theme', 'badge', 'pet'].map((tab) => (
-    <TouchableOpacity key={tab} onPress={() => setActiveTab(tab as any)}>
-      <Text style={{ color: activeTab === tab ? theme.accent : '#666', fontWeight: '600' }}>
-        {tab.toUpperCase()}
+    <TouchableOpacity
+      key={tab}
+      style={[
+  ,
+  activeTab === tab && styles.activeTab,
+]}
+
+      onPress={() => setActiveTab(tab as any)}
+    >
+      <Text style={styles.tabText}>
+        {tab === 'theme' ? '🎨 Themes' : tab === 'badge' ? '🏅 Badges' : '🐾 Pets'}
       </Text>
     </TouchableOpacity>
   ))}
 </View>
 
+{filteredRewards.length === 0 && (
+  <Text style={{ textAlign: 'center', color: '#777', marginTop: 40 }}>
+    🚫 No rewards in this category yet.
+  </Text>
+)}
 
 <FlatList
   data={filteredRewards}
   keyExtractor={(item) => item.id}
   renderItem={renderItem}
-  extraData={{ activeTab, unlocked, equippedBadge, equippedHud, themeKey }}
+  extraData={{ activeTab, unlocked, equippedBadge, equippedHud, equippedPet, themeKey }} // <-- added `equippedPet`
   contentContainerStyle={{ paddingBottom: 40 }}
   ListFooterComponent={activeTab === 'theme' ? (
     <TouchableOpacity onPress={() => navigation.navigate('ThemeGalleryScreen')}>
@@ -359,16 +467,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   }),
   cardUnlocked: (theme) => ({
-    borderColor: theme.accent,
-    borderWidth: 1,
-  }),
+  borderColor: theme.accent,
+  borderWidth: 1,
+  paddingBottom: 12,
+  shadowColor: theme.accent,
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0.3,
+  shadowRadius: 8,
+}),
+
+
   rewardName: { fontSize: 16, marginBottom: 6 },
   cost: { fontSize: 14, margin: 8 },
   buttonText: { fontSize: 14, fontWeight: 'bold' },
   tabBar: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 },
-tabButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10, borderWidth: 1, borderColor: '#00f9ff55' },
+
 activeTab: { backgroundColor: '#00f9ff22' },
-tabText: { color: '#00f9ff', fontWeight: 'bold' },
+tabText: { color: 'white', fontWeight: 'bold' },
 
 cyberButton: (theme) => ({
   backgroundColor: `${theme.accent}33`,
@@ -404,5 +519,55 @@ cyberButtonDisabled: {
 cyberButtonTextDisabled: {
   color: '#999',
 },
+
+equipButton: {
+  backgroundColor: '#00f9ff22',
+  paddingVertical: 8,
+  paddingHorizontal: 18,
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: '#00f9ff',
+  shadowColor: '#00f9ff',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.7,
+  shadowRadius: 6,
+  marginTop: 8,
+  alignSelf: 'center',
+},
+
+equipButtonText: (theme) => ({
+  color: theme.text,
+  fontSize: 14,
+  textAlign: 'center',
+}),
+
+
+equippedButton: {
+  backgroundColor: '#0f0f0f',
+  paddingVertical: 8,
+  paddingHorizontal: 18,
+  borderRadius: 10,
+  shadowColor: '#4caf50',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.6,
+  shadowRadius: 6,
+  marginTop: 8,
+  alignSelf: 'center',
+},
+
+equippedButtonText: {
+  color: '#4caf50',
+  fontSize: 14,
+  textAlign: 'center',
+},
+xpHighlight: {
+  fontSize: 16,
+  fontWeight: '600',
+  color: '#aaa',
+  marginBottom: 16,
+  textAlign: 'center',
+  letterSpacing: 0.5,
+},
+
 
 });

@@ -5,6 +5,9 @@ import * as Progress from 'react-native-progress';
 import { Quest } from '../utils/type';
 import { useTheme } from '../contexts/ThemeContext';
 import { generateUniqueQuests } from '../utils/QuestGenerator';
+import { useRef } from 'react';
+
+
 
 const questTypes = ['Daily', 'Weekly', 'Event'] as const;
 type QuestType = typeof questTypes[number];
@@ -14,7 +17,11 @@ export default function QuestJournalTabs() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const { theme } = useTheme();
   const [timerTick, setTimerTick] = useState(Date.now());
+  const questsRef = useRef(quests);
 
+useEffect(() => {
+  questsRef.current = quests;
+}, [quests]);
 
   useEffect(() => {
     loadQuests(activeTab);
@@ -29,25 +36,66 @@ export default function QuestJournalTabs() {
 
 
   useEffect(() => {
+  const checkAndLogCompletion = async () => {
+    const currentQuests = questsRef.current;
+    const key = `quests_${activeTab}`;
+    let updated = [...currentQuests];
     let changed = false;
 
-    const updated = quests.map((q) => {
+    const activity = JSON.parse(await AsyncStorage.getItem('activityHistory') || '[]');
+
+    updated = updated.map((q) => {
+      const justCompleted = !q.isComplete && q.progress >= 100 && !q.isFailed;
+
+      if (justCompleted) {
+        changed = true;
+
+        activity.push({
+          date: new Date().toISOString(),
+          type: 'quest',
+          description: `✅ Completed ${activeTab.toLowerCase()} quest: ${q.title}`,
+          details: {
+            questId: q.id,
+            reward: q.rewardXp,
+            type: activeTab,
+          },
+        });
+
+        return {
+          ...q,
+          isComplete: true,
+          progress: 100,
+          condition: {
+            ...q.condition,
+            current: q.condition.target,
+          },
+        };
+      }
+
+      // ❌ Time's up
       if (q.timeLimit && q.startTime && !q.isComplete && !q.isFailed) {
-        const elapsed = Date.now() - q.startTime;
-        if (elapsed > q.timeLimit) {
+        const expired = Date.now() - q.startTime > q.timeLimit;
+        if (expired) {
           changed = true;
           return { ...q, isFailed: true };
         }
       }
+
       return q;
     });
 
     if (changed) {
-      const key = `quests_${activeTab}`;
-      AsyncStorage.setItem(key, JSON.stringify(updated));
+      await AsyncStorage.setItem(key, JSON.stringify(updated));
+      await AsyncStorage.setItem('activityHistory', JSON.stringify(activity));
       setQuests(updated);
     }
-  }, [timerTick]);
+  };
+
+  checkAndLogCompletion();
+}, [timerTick]);
+
+
+
 
 
   const loadQuests = async (type: QuestType) => {
@@ -93,63 +141,92 @@ export default function QuestJournalTabs() {
 
 
 
-  const fakeCompleteQuest = async (questId: string) => {
-    const updated = quests.map((q) =>
-      q.id === questId
-        ? { ...q, isComplete: true, progress: 100, condition: { ...q.condition, current: q.condition.target } }
-        : q
-    );
-    const key = `quests_${activeTab}`;
-    await AsyncStorage.setItem(key, JSON.stringify(updated));
-    setQuests(updated);
-  };
+  const completeQuestWithLog = async (questId: string) => {
+  const updated = quests.map((q) =>
+    q.id === questId
+      ? {
+          ...q,
+          isComplete: true,
+          progress: 100,
+          condition: { ...q.condition, current: q.condition.target },
+        }
+      : q
+  );
+
+  const key = `quests_${activeTab}`;
+  await AsyncStorage.setItem(key, JSON.stringify(updated));
+  setQuests(updated);
+
+  const quest = updated.find((q) => q.id === questId);
+  if (quest) {
+    const xpStored = await AsyncStorage.getItem('xp');
+    const xp = parseInt(xpStored ?? '0') + quest.rewardXp;
+    await AsyncStorage.setItem('xp', xp.toString());
+
+    const activity = JSON.parse(await AsyncStorage.getItem('activityHistory') || '[]');
+    activity.push({
+      date: new Date().toISOString(),
+      type: 'quest',
+      description: `Completed ${activeTab.toLowerCase()} quest: ${quest.title}`,
+      details: {
+        questId: quest.id,
+        reward: quest.rewardXp,
+        type: activeTab,
+      },
+    });
+    await AsyncStorage.setItem('activityHistory', JSON.stringify(activity));
+  }
+};
+
+
+
 
   const renderQuest = ({ item }: { item: Quest }) => (
-    <View style={[styles.card, { backgroundColor: theme.background, borderColor: `${theme.accent}44` }]}>
-      <Text style={[styles.title, { color: theme.accent }]}>{item.title}</Text>
-      <Text style={[styles.desc, { color: theme.text }]}>{item.description}</Text>
-      <Progress.Bar
-        progress={item.progress / 100}
-        width={null}
-        height={12}
-        borderRadius={10}
-        color={theme.accent}
-        unfilledColor="#333"
-        borderWidth={0}
-        style={{ marginVertical: 10 }}
-      />
-      <Text style={[styles.progressLabel, { color: theme.text }]}>
-        {item.condition.current} / {item.condition.target} • 🎁 {item.rewardXp} XP
-      </Text>
-      {item.isComplete && <Text style={[styles.complete, { color: theme.text }]}>✅ Complete</Text>}
-      {item.timeLimit && item.startTime && !item.isComplete && !item.isFailed && (() => {
-        const remainingMs = Math.max(0, item.timeLimit - (Date.now() - item.startTime));
-        const totalSeconds = Math.floor(remainingMs / 1000);
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
+  <View style={[styles.card, { backgroundColor: theme.background, borderColor: `${theme.accent}44` }]}>
+    <Text style={[styles.title, { color: theme.accent }]}>{item.title}</Text>
+    <Text style={[styles.desc, { color: theme.text }]}>{item.description}</Text>
+    <Progress.Bar
+      progress={item.progress / 100}
+      width={null}
+      height={12}
+      borderRadius={10}
+      color={theme.accent}
+      unfilledColor="#333"
+      borderWidth={0}
+      style={{ marginVertical: 10 }}
+    />
+    <Text style={[styles.progressLabel, { color: theme.text }]}>
+      {item.condition.current} / {item.condition.target} • 🎁 {item.rewardXp} XP
+    </Text>
 
-        return (
-          <Text style={[styles.progressLabel, { color: theme.text }]}>
-            ⏳ {hours.toString().padStart(2, '0')}:{minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')} left
-          </Text>
-        );
+    {/* 🎉 Claim or Status */}
+    {item.isComplete ? (
+      <Text style={[styles.complete, { color: theme.text }]}>✅ Complete</Text>
+    ) : item.isFailed ? (
+      <Text style={[styles.complete, { color: '#ff5555' }]}>❌ Failed (Time's up)</Text>
+    ) : null}
 
-      })()}
+    {/* ⏳ Countdown */}
+    {item.timeLimit && item.startTime && !item.isComplete && !item.isFailed && (() => {
+      const remainingMs = Math.max(0, item.timeLimit - (Date.now() - item.startTime));
+      const totalSeconds = Math.floor(remainingMs / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
 
-
-      {item.isFailed && (
-        <Text style={[styles.complete, { color: '#ff5555' }]}>
-          ❌ Failed (Time's up)
+      return (
+        <Text style={[styles.progressLabel, { color: theme.text }]}>
+          ⏳ {hours.toString().padStart(2, '0')}:{minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')} left
         </Text>
-      )}
-    </View>
+      );
+    })()}
+  </View>
+);
 
-  );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.header, { color: theme.accent }]}>📘 Quest Journal</Text>
+      <Text style={[styles.header, { color: theme.accent }]}>Quest Journal</Text>
       <View style={styles.tabBar}>
         {questTypes.map((type) => (
           <TouchableOpacity
@@ -186,4 +263,5 @@ const styles = StyleSheet.create({
   desc: { fontSize: 14 },
   progressLabel: { fontSize: 12, marginTop: 4 },
   complete: { fontWeight: 'bold', marginTop: 8 },
+
 });
