@@ -139,7 +139,7 @@ export default function BossMapScreen() {
   if (loading) {
     return (
       <View style={[styles.map, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }]}>
-        <Text style={{ color: '#00f9ff', fontSize: 18 }}>🔄 Loading Map...</Text>
+        <Text style={{ color: '#00f9ff', fontSize: 18 }}>🔄 Đang tải...</Text>
       </View>
     );
   }
@@ -160,7 +160,7 @@ export default function BossMapScreen() {
 
       {showZoneBanner && (
         <View style={styles.banner}>
-          <Text style={styles.bannerText}>🌐 New Zone Unlocked!</Text>
+          <Text style={styles.bannerText}>🌐 Map mới đã được mở</Text>
         </View>
       )}
 
@@ -222,7 +222,7 @@ export default function BossMapScreen() {
                 }}
                 resizeMode="contain"
               />
-              {isLocked && <Text style={styles.lockedText}>🔒 Locked</Text>}
+              {isLocked && <Text style={styles.lockedText}>🔒 Khóa</Text>}
             </TouchableOpacity>
           );
         })}

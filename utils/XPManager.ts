@@ -47,6 +47,10 @@ export const XPManager = {
     return level ? parseInt(level) : 1;
   },
 
+  setXp: async (amount: number): Promise<void> => {
+  await AsyncStorage.setItem('xp', amount.toString());
+},
+
   updateLevel: async (xp: number, currentLevel: number): Promise<void> => {
     let level = currentLevel;
     let xpForNext = 100 + (level - 1) * 20;

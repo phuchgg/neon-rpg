@@ -1,19 +1,18 @@
 export const npcQuestGivers = {
-    ghostrunner: [
-      { name: 'Shade', quote: 'Move like a whisper. Strike like a shadow.' },
-      { name: 'Blink', quote: 'No time for chit-chat. Quests await.' },
-    ],
-    netcrasher: [
-      { name: 'ByteJack', quote: 'Every bug squashed earns you glory.' },
-      { name: 'ZeroDay', quote: 'Hack the system. Patch your XP.' },
-    ],
-    synthmancer: [
-      { name: 'Harmony', quote: 'Balance the data, master the flow.' },
-      { name: 'Echo', quote: 'Every small task echoes into greatness.' },
-    ],
-    edgewalker: [
-      { name: 'Grim', quote: 'Legacy is earned, not given.' },
-      { name: 'Ironveil', quote: 'Tread the edge. Defy mediocrity.' },
-    ],
-  };
-  
+  ghostrunner: [
+    { name: 'Shade', quote: 'Di chuyển như làn gió. Ra tay như chiếc bóng.' },
+    { name: 'Blink', quote: 'Không nói nhiều. Nhiệm vụ đang đợi.' },
+  ],
+  netcrasher: [
+    { name: 'ByteJack', quote: 'Diệt một bug là ghi thêm một huyền thoại.' },
+    { name: 'ZeroDay', quote: 'Hãy hack hệ thống. Nâng cấp XP của bạn.' },
+  ],
+  synthmancer: [
+    { name: 'Harmony', quote: 'Cân bằng dữ liệu, làm chủ dòng chảy.' },
+    { name: 'Echo', quote: 'Mỗi nhiệm vụ nhỏ vang vọng thành vĩ đại.' },
+  ],
+  edgewalker: [
+    { name: 'Grim', quote: 'Di sản không phải để nhận – mà để giành lấy.' },
+    { name: 'Ironveil', quote: 'Bước trên ranh giới. Thách thức sự tầm thường.' },
+  ],
+};

@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Ima
 import { Asset } from 'expo-asset';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { classes } from '../utils/classes';
+import { syncToFirestore } from '../utils/syncToFirestore';
 
 export default function ClassSelectScreen({ navigation }: any) {
   const [ready, setReady] = useState(false);
@@ -10,10 +11,10 @@ export default function ClassSelectScreen({ navigation }: any) {
   useEffect(() => {
     const init = async () => {
       const saved = await AsyncStorage.getItem('playerClass');
-      if (saved) {
-        navigation.replace('TaskScreen');
-        return;
-      }
+if (saved && saved !== 'none' && saved.trim() !== '') {
+  navigation.replace('TaskScreen');
+  return;
+}
 
       // Preload images first!
       const imageAssets = classes.map((role) => Asset.fromModule(role.icon).downloadAsync());
@@ -27,7 +28,9 @@ export default function ClassSelectScreen({ navigation }: any) {
 
   const chooseClass = async (roleId: string) => {
     await AsyncStorage.setItem('playerClass', roleId);
-    Alert.alert('Class Selected!', `Welcome, ${roleId}.`);
+    await AsyncStorage.setItem('classSelected', 'true');
+    await syncToFirestore();
+    Alert.alert('Đã chọn Class!', `Xin chào, ${roleId}.`);
     navigation.replace('TaskScreen');
   };
 
@@ -35,14 +38,14 @@ export default function ClassSelectScreen({ navigation }: any) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#00f9ff" />
-        <Text style={styles.loadingText}>Loading classes...</Text>
+        <Text style={styles.loadingText}>Đang tải Class...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>🎭 Choose Your Class</Text>
+      <Text style={styles.title}>🎭 Chọn Class</Text>
       {classes.map((role) => (
         <TouchableOpacity
           key={role.id}

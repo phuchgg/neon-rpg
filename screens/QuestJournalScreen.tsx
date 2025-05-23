@@ -6,10 +6,11 @@ import { Quest } from '../utils/type';
 import { useTheme } from '../contexts/ThemeContext';
 import { generateUniqueQuests } from '../utils/QuestGenerator';
 import { useRef } from 'react';
+import { syncToFirestore } from '../utils/syncToFirestore';
 
 
 
-const questTypes = ['Daily', 'Weekly', 'Event'] as const;
+const questTypes = ['Hàng ngày', 'Hàng tuần', 'Sự kiện'] as const;
 type QuestType = typeof questTypes[number];
 
 export default function QuestJournalTabs() {
@@ -53,7 +54,7 @@ useEffect(() => {
         activity.push({
           date: new Date().toISOString(),
           type: 'quest',
-          description: `✅ Completed ${activeTab.toLowerCase()} quest: ${q.title}`,
+          description: `✅ Hoành thành nhiệm vụ ${activeTab.toLowerCase()}: ${q.title}`,
           details: {
             questId: q.id,
             reward: q.rewardXp,
@@ -87,6 +88,7 @@ useEffect(() => {
     if (changed) {
       await AsyncStorage.setItem(key, JSON.stringify(updated));
       await AsyncStorage.setItem('activityHistory', JSON.stringify(activity));
+      await syncToFirestore();
       setQuests(updated);
     }
   };
@@ -201,9 +203,9 @@ useEffect(() => {
 
     {/* 🎉 Claim or Status */}
     {item.isComplete ? (
-      <Text style={[styles.complete, { color: theme.text }]}>✅ Complete</Text>
+      <Text style={[styles.complete, { color: theme.text }]}>✅ Đã hoàn thành</Text>
     ) : item.isFailed ? (
-      <Text style={[styles.complete, { color: '#ff5555' }]}>❌ Failed (Time's up)</Text>
+      <Text style={[styles.complete, { color: '#ff5555' }]}>❌ Thất bại (hết thời gian)</Text>
     ) : null}
 
     {/* ⏳ Countdown */}
@@ -216,7 +218,7 @@ useEffect(() => {
 
       return (
         <Text style={[styles.progressLabel, { color: theme.text }]}>
-          ⏳ {hours.toString().padStart(2, '0')}:{minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')} left
+          Còn lại:  {hours.toString().padStart(2, '0')}:{minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
         </Text>
       );
     })()}
@@ -226,7 +228,7 @@ useEffect(() => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.header, { color: theme.accent }]}>Quest Journal</Text>
+      <Text style={[styles.header, { color: theme.accent }]}>Nhật Ký Nhiệm Vụ</Text>
       <View style={styles.tabBar}>
         {questTypes.map((type) => (
           <TouchableOpacity

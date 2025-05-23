@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "33455825656",
+    "project_id": "neonrgpapp",
+    "storage_bucket": "neonrgpapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:33455825656:android:2465a27e5eeb61e8a2910d",
+        "android_client_info": {
+          "package_name": "com.maximumz160.neonrpg"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "33455825656-4hvdnvp28amv4645ftlacrnsdeusgbpq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCaZfPgzL4SFjnv2PiS8cmXoBWb25XXiZE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "33455825656-4hvdnvp28amv4645ftlacrnsdeusgbpq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

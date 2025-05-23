@@ -7,6 +7,7 @@ import { classes as playerClasses, CLASS_SWITCH_COST } from '../utils/classes';
 import { useTheme } from '../contexts/ThemeContext';
 import { Asset } from 'expo-asset';
 
+
 type RoleShopScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'RoleShopScreen'>;
 };
@@ -92,9 +93,9 @@ export default function RoleShopScreen({ navigation }: RoleShopScreenProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.accent }]}>Switch Your Role</Text>
+      <Text style={[styles.title, { color: theme.accent }]}>Đổi Class nhân vật</Text>
       <Text style={[styles.current, { color: theme.text }]}>
-        Current: {currentClass || 'Unknown'} | Total XP: {totalXp}
+        Class hiện tại: {currentClass || 'Unknown'} | Tổng XP: {totalXp}
       </Text>
 
       {playerClasses.map((cls) => {
@@ -124,12 +125,12 @@ export default function RoleShopScreen({ navigation }: RoleShopScreenProps) {
 
             {isLocked && (
               <Text style={[styles.lockedLabel, { color: '#ff4d4d' }]}>
-                🔒 Unlock at 17-day streak
+                🔒 Mở khóa sau 17 ngày
               </Text>
             )}
             {cls.id === currentClass && !isLocked && (
               <Text style={[styles.currentLabel, { color: theme.accent }]}>
-                ✅ Currently Equipped
+                Class chính
               </Text>
             )}
           </TouchableOpacity>

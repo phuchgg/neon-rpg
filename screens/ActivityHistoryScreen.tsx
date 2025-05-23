@@ -19,7 +19,7 @@ export default function ActivityHistoryScreen() {
       const json = await AsyncStorage.getItem('activityHistory');
       if (json) {
         const parsed: HistoryItem[] = JSON.parse(json);
-        console.log("📜 Loaded history:", parsed);
+        console.log("🗂️ Đã tải lịch sử hoạt động:", parsed);
         setHistory(parsed.reverse());
       }
     };
@@ -69,7 +69,7 @@ export default function ActivityHistoryScreen() {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
   <Text style={styles.emptyIcon}>📭</Text>
-  <Text style={styles.emptyText}>No activity history yet.</Text>
+  <Text style={styles.emptyText}>Chưa có hoạt động nào được ghi nhận.</Text>
 </View>
 
     );
@@ -77,7 +77,7 @@ export default function ActivityHistoryScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.accent }]}>Activity Timeline</Text>
+      <Text style={[styles.title, { color: theme.accent }]}>Dòng thời gian hoạt động</Text>
       <FlatList
         data={history}
         keyExtractor={(item, index) => `${item.date}_${index}`}

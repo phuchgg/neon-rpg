@@ -16,6 +16,7 @@ import { Boss } from '../utils/type';
 import { RootStackParamList } from '../utils/navigation';
 import { useTheme } from '../contexts/ThemeContext';
 import AssetManager from '../utils/AssetManager';
+import { syncToFirestore } from '../utils/syncToFirestore';
 
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'BossQuestScreen'>;
@@ -52,33 +53,35 @@ export default function BossQuestScreen() {
         return { ...b, totalXp, xpRemaining, progress };
       });
       await AsyncStorage.setItem('bosses', JSON.stringify(updated));
+      await syncToFirestore();
       setBosses(updated);
     } else {
       const starterBosses: Boss[] = [
-        {
-          id: 'boss1',
-          title: 'Get Driver License',
-          description: 'Complete theory + practical lessons.',
-          isDefeated: false,
-          createdAt: Date.now(),
-          tier: 'mini',
-          totalXp: 3000,
-          xpRemaining: 2100,
-          progress: 30,
-        },
-        {
-          id: 'boss2',
-          title: 'Launch Portfolio Website',
-          description: 'Finish design + deploy to GitHub Pages.',
-          isDefeated: true,
-          createdAt: Date.now(),
-          tier: 'mega',
-          totalXp: 5000,
-          xpRemaining: 0,
-          progress: 100,
-        },
-      ];
+  {
+    id: 'boss1',
+    title: 'Lấy Bằng Lái Xe',
+    description: 'Hoàn thành lý thuyết + thực hành.',
+    isDefeated: false,
+    createdAt: Date.now(),
+    tier: 'mini',
+    totalXp: 3000,
+    xpRemaining: 2100,
+    progress: 30,
+  },
+  {
+    id: 'boss2',
+    title: 'Ra Mắt Portfolio',
+    description: 'Thiết kế và triển khai lên GitHub Pages.',
+    isDefeated: true,
+    createdAt: Date.now(),
+    tier: 'mega',
+    totalXp: 5000,
+    xpRemaining: 0,
+    progress: 100,
+  },
+];
       await AsyncStorage.setItem('bosses', JSON.stringify(starterBosses));
+      await syncToFirestore();
       setBosses(starterBosses);
     }
   };
@@ -112,7 +115,7 @@ export default function BossQuestScreen() {
   />
 </View>
 <Text style={styles.progressText}>
-  {`${item.progress}% ${item.isDefeated ? '✅ Defeated' : ''}`}
+  {`${item.progress}% ${item.isDefeated ? '✅ Đã đánh bại' : ''}`}
 </Text>
 
     </View>
@@ -120,7 +123,7 @@ export default function BossQuestScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Boss Quests</Text>
+      <Text style={styles.header}>Nhiệm vụ Boss</Text>
       <FlatList
         data={bosses}
         keyExtractor={(item) => item.id}
@@ -133,13 +136,13 @@ export default function BossQuestScreen() {
           const stored = await AsyncStorage.getItem('bosses');
           const currentBosses = stored ? JSON.parse(stored) : [];
           if (currentBosses.length >= 6) {
-            Alert.alert('⚠️ Limit Reached', 'You can only have up to 6 bosses at a time.');
+            Alert.alert('⚠️ Giới hạn Boss', 'Bạn chỉ có thể thêm 6 Boss tối đa cùng lúc.');
             return;
           }
           navigation.navigate('CreateBossScreen');
         }}
       >
-        <Text style={styles.addButtonText}>+ Add Boss</Text>
+        <Text style={styles.addButtonText}>+ Thêm Boss</Text>
       </TouchableOpacity>
     </View>
   );

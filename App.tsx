@@ -21,6 +21,8 @@ import LeaderboardScreen from './screens/LeaderboardScreen'
 import { Asset } from 'expo-asset';
 import * as SplashScreen from 'expo-splash-screen';
 import { PetImageMap, BadgeImageMap } from './utils/AssetManager'; // Adjust path
+import StartupScreen from './screens/StartupScreen';
+import ProfileScreen from './screens/ProfileScreen'; 
 
 const preloadAssets = async () => {
   const images = [
@@ -48,12 +50,14 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
-        <NavigationContainer>
+    <NavigationContainer>
           <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="StartupScreen" component={StartupScreen} />
             <Stack.Screen name="ClassSelectScreen" component={ClassSelectScreen} />
             <Stack.Screen name="TaskScreen" component={TaskScreen} options={{
               gestureEnabled: false, // 🔒 Disable swipe back
             }} />
+            <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
             <Stack.Screen name="RewardStoreScreen" component={RewardStoreScreen} />
             <Stack.Screen name="RoleShopScreen" component={RoleShopScreen} />
             <Stack.Screen name="BossMapScreen" component={BossMapScreen} />

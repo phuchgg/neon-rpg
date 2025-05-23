@@ -7,6 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { classes } from '../utils/classes';
 import { Npc, ClassType } from '../utils/type';
 import { Image } from 'react-native';
+import { syncToFirestore } from '../utils/syncToFirestore';
 
 const getXpForLevel = (level: number): number => {
   return 100 + (level - 1) * 20;
@@ -71,7 +72,7 @@ export default function ClassQuestScreen() {
     while (xp >= getXpForLevel(level)) {
       xp -= getXpForLevel(level);
       level += 1;
-      Alert.alert('🎉 Level Up!', `You reached level ${level}!`);
+      Alert.alert('🎉 Lêp cấp!', `Bạn đã đạt level ${level}!`);
     }
 
     await AsyncStorage.setItem('level', level.toString());
@@ -105,11 +106,11 @@ export default function ClassQuestScreen() {
     const newXp = savedXp + 20;
     await AsyncStorage.setItem('xp', newXp.toString());
 
-    Alert.alert('🎉 Quest Complete!', `+20 XP earned\n🔥 Streak: ${streak} day${streak > 1 ? 's' : ''}`);
+    Alert.alert('🎉 Hoàn thành nhiệm vụ!', `+20 XP nhận được\n🔥 Chuỗi: ${streak} ngày${streak > 1 ? 's' : ''}`);
 
     if (streak === 7) {
       await AsyncStorage.setItem('edgewalkerUnlocked', 'true');
-      Alert.alert('🔥 New Class Unlocked!', 'You unlocked Edgewalker!');
+      Alert.alert('🔥 Mở khóa Class mới!', 'Bạn đã mở khóa EdgeWalker');
     }
 
     const historyJson = await AsyncStorage.getItem('questHistory');
@@ -121,12 +122,13 @@ export default function ClassQuestScreen() {
     timeline.push({
       date: new Date().toISOString(),
       type: 'quest',
-      description: `Completed class quest: ${dailyQuest}`,
+      description: `Đã hoàn thành nhiệm vụ theo Class: ${dailyQuest}`,
       details: { class: playerClass },
     });
     await AsyncStorage.setItem('activityHistory', JSON.stringify(timeline));
 
     await handleLevelUp();
+    await syncToFirestore();
   };
 
   useEffect(() => {
@@ -139,7 +141,7 @@ export default function ClassQuestScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={[styles.title, { color: theme.accent }]}>Class Quest Giver</Text>
+      <Text style={[styles.title, { color: theme.accent }]}>Nhiệm vụ theo Class</Text>
 
       {npc && (
         <View style={styles.npcBox}>
@@ -169,7 +171,7 @@ export default function ClassQuestScreen() {
     styles.rewardButtonText,
     { color: questCompleted ? '#999' : '#00ffc8' },
   ]}>
-    {questCompleted ? '✅ Completed' : '⚡ CLAIM REWARD'}
+    {questCompleted ? '✅ Đã hoàn thành' : '⚡ NHẬN THƯỞNG'}
   </Text>
 </TouchableOpacity>
 
@@ -177,7 +179,7 @@ export default function ClassQuestScreen() {
 
       <View style={{ marginTop: 10 }}>
         <Text style={ styles.streakText}>
-          🔥 Streak: {questStreak} day{questStreak > 1 ? 's' : ''} {questStreak >= 7 && '🎖️'}
+          🔥 Chuỗi nhiệm vụ: {questStreak} ngày{questStreak > 1 ? 's' : ''} {questStreak >= 7 && '🎖️'}
         </Text>
       </View>
     </View>

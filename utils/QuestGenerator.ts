@@ -1,14 +1,14 @@
 import { Quest } from '../utils/type';
 
 const taskTemplates = [
-  { id: 'task_5', title: 'Complete {n} Tasks', desc: 'Stay productive.', baseTarget: 5, baseXp: 30 },
-  { id: 'task_speed', title: 'Check Off {n} Tasks Fast', desc: 'Speedrun your life.', baseTarget: 3, baseXp: 20 },
+  { id: 'task_5', title: 'Hoàn thành {n} nhiệm vụ', desc: 'Năng suất nào.', baseTarget: 5, baseXp: 30 },
+  { id: 'task_speed', title: 'Nhanh chóng thực hiện {n} nhiệm vụ', desc: 'Tăng tốc chính mình.', baseTarget: 3, baseXp: 20 },
 ];
 
 const bossTemplates = [
-  { id: 'boss_mini', title: 'Defeat {n} Mini Bosses', desc: 'Show your skills.', baseTarget: 2, baseXp: 50 },
-  { id: 'boss_elite', title: 'Crush {n} Elite Bosses', desc: 'No mercy for elites.', baseTarget: 3, baseXp: 80 },
-  { id: 'boss_mega', title: 'Annihilate {n} Mega Boss', desc: 'The ultimate challenge.', baseTarget: 1, baseXp: 150 },
+  { id: 'boss_mini', title: 'Đánh bại {n} Boss Nhỏ', desc: 'Phô diễn kỹ năng chính mình', baseTarget: 2, baseXp: 50 },
+  { id: 'boss_elite', title: 'Đã bại {n} Boss Tinh Anh', desc: 'Không khoang nhượng.', baseTarget: 3, baseXp: 80 },
+  { id: 'boss_mega', title: 'Tiêu diệt {n} Boss Siêu Cấp', desc: 'Thử thách cuối cùng', baseTarget: 1, baseXp: 150 },
 ];
 
 const shuffle = <T,>(arr: T[]): T[] => arr.sort(() => Math.random() - 0.5);

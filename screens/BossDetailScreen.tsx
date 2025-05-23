@@ -48,7 +48,7 @@ export default function BossDetailScreen() {
   if (!boss) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>Boss not found.</Text>
+        <Text style={styles.title}>Không tìm thấy Boss.</Text>
       </View>
     );
   }
@@ -67,9 +67,9 @@ export default function BossDetailScreen() {
         </View>
       </View>
 
-      <Text style={styles.subheading}>Linked Tasks:</Text>
+      <Text style={styles.subheading}>Nhiệm vụ liên quan:</Text>
       {linkedTasks.length === 0 ? (
-        <Text style={styles.noTask}>🕹️ No tasks linked yet.</Text>
+        <Text style={styles.noTask}>🕹️ Chưa nhận nhiệm vụ liên quan.</Text>
       ) : (
         <FlatList
           data={linkedTasks}

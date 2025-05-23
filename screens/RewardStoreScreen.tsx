@@ -11,6 +11,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import eventBus from '../utils/EventBus';
 import AssetManager from '../utils/AssetManager';
 import { PetImageMap, BadgeImageMap } from '../utils/AssetManager';
+import { syncToFirestore } from '../utils/syncToFirestore';
+import { Animated } from 'react-native';
+
 
 const themePreviewMap = {
   jade_echo: { colors: ['#0d1f14', '#d8ffe3', '#2aff80'] },
@@ -47,6 +50,43 @@ const ThemePreviewBar = ({ colors }: { colors: string[] }) => (
   </View>
 );
 
+const AnimatedBuffText = ({ text, isUnlocked, theme }) => {
+  const opacity = useMemo(() => new Animated.Value(0), []);
+  const scale = useMemo(() => new Animated.Value(0.95), []);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.Text
+      style={{
+        textAlign: 'center',
+        color: isUnlocked ? theme.accent : '#888',
+        fontSize: 13,
+        fontStyle: 'italic',
+        marginBottom: 8,
+        textShadowColor: isUnlocked ? theme.accent : 'transparent',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: isUnlocked ? 4 : 0,
+        opacity,
+        transform: [{ scale }],
+      }}
+    >
+      {text}
+    </Animated.Text>
+  );
+};
 
 
 export default function RewardStoreScreen() {
@@ -62,62 +102,62 @@ export default function RewardStoreScreen() {
     existing.push(item);
     await AsyncStorage.setItem('activityHistory', JSON.stringify(existing));
   };
-  
+
   const [activeTab, setActiveTab] = useState<'theme' | 'badge' | 'pet'>('theme');
-
+  
   const EquipButton = ({
-  onPress,
-  isEquipped,
-  label,
-}: {
-  onPress?: () => void;
-  isEquipped: boolean;
-  label: string;
-}) => {
-  const { theme } = useTheme();
+    onPress,
+    isEquipped,
+    label,
+  }: {
+    onPress?: () => void;
+    isEquipped: boolean;
+    label: string;
+  }) => {
+    const { theme } = useTheme();
 
-  if (isEquipped) {
-    return (
-      <View
-        style={[
-          styles.equippedButton,
-          {
-            borderColor: theme.accent,
-            shadowColor: theme.accent,
-            backgroundColor: `${theme.accent}22`,
-          },
-        ]}
-      >
-        <Text
+    if (isEquipped) {
+      return (
+        <View
           style={[
-            styles.equippedButtonText,
-            { color: `${theme.text}AA` }, // blur-style text
+            styles.equippedButton,
+            {
+              borderColor: theme.accent,
+              shadowColor: theme.accent,
+              backgroundColor: `${theme.accent}22`,
+            },
           ]}
         >
-          Equipped
-        </Text>
-      </View>
+          <Text
+            style={[
+              styles.equippedButtonText,
+              { color: `${theme.text}AA` }, // blur-style text
+            ]}
+          >
+            Đã trang bị
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <TouchableOpacity onPress={onPress}>
+        <View
+          style={[
+            styles.equipButton,
+            {
+              borderColor: theme.accent,
+              shadowColor: theme.accent,
+              backgroundColor: `${theme.accent}33`,
+            },
+          ]}
+        >
+          <Text style={styles.equipButtonText(theme)}>{label}</Text>
+
+        </View>
+      </TouchableOpacity>
     );
-  }
-
-  return (
-    <TouchableOpacity onPress={onPress}>
-      <View
-        style={[
-          styles.equipButton,
-          {
-            borderColor: theme.accent,
-            shadowColor: theme.accent,
-            backgroundColor: `${theme.accent}33`,
-          },
-        ]}
-      >
-        <Text style={styles.equipButtonText(theme)}>{label}</Text>
-
-      </View>
-    </TouchableOpacity>
-  );
-};
+  };
 
 
   const loadData = async () => {
@@ -127,7 +167,7 @@ export default function RewardStoreScreen() {
     const cosmetics = await CosmeticManager.getEquippedCosmetics();
     console.log('Equipped Cosmetics:', cosmetics); // ✅ Check if pet shows up
     const streak = parseInt(await AsyncStorage.getItem('questStreak') ?? '0');
-  
+
     setTotalXpBank(savedTotalXp ? parseInt(savedTotalXp) : 0);
     setUnlocked(savedRewards ? JSON.parse(savedRewards) : []);
     setEquippedBadge(cosmetics.badge);
@@ -142,18 +182,20 @@ export default function RewardStoreScreen() {
       await addHistory({
         date: new Date().toISOString(),
         type: 'reward',
-        description: `Unlocked badge via streak: Glitch Badge`,
+        description: `Mở khóa thông qua chuỗi 7 ngày liên tục: Glitch Badge`,
         details: { badgeId: 'badge_glitch' },
       });
-      Alert.alert('🎖️ Badge Unlocked!', 'You earned the Glitch Badge for your 7-day quest streak!');
+      await syncToFirestore();
+      Alert.alert('🎖️ Huy hiệu mới!', 'Bạn vừa nhận được Glitch Badge cho chuỗi 7 ngày liên tục!');
     }
   };
   const handleEquipPet = async (petId: string) => {
-  await CosmeticManager.setEquippedPet(petId);
-   setEquippedPet(petId);
-  eventBus.emit('cosmeticUpdated');
-  Alert.alert('Pet Equipped!', `${petId} is now active.`);
-};
+    await CosmeticManager.setEquippedPet(petId);
+    setEquippedPet(petId);
+    eventBus.emit('cosmeticUpdated');
+    await syncToFirestore();
+    Alert.alert('Đã trang bị!', `${petId} đã được sử dụng.`);
+  };
 
 
 
@@ -165,51 +207,51 @@ export default function RewardStoreScreen() {
       description: `Equipped theme: ${themeId}`,
       details: { themeId },
     });
-  
-    Alert.alert('Theme Equipped!', `${themeId} is now active.`);
+    await syncToFirestore();
+    Alert.alert('Đã trang bị!', `${themeId} đã được sử dụng.`);
   };
 
   const handleEquipHud = async (hudId: string) => {
     await CosmeticManager.setEquippedHud(hudId);
     eventBus.emit('cosmeticUpdated');
     setEquippedHud(hudId);
-  
+
     await addHistory({
       date: new Date().toISOString(),
       type: 'reward',
       description: `Equipped HUD: ${hudId}`,
       details: { hudId },
     });
-  
-    Alert.alert('HUD Equipped!', `${hudId} is now active.`);
+
+    Alert.alert('Đã trang bị!', `${hudId} đã được sử dụng.`);
   };
 
   useFocusEffect(useCallback(() => { loadData(); }, []));
 
 
   const handleUnlock = useCallback((rewardId: string, cost: number) => {
-  const isUnlocked = unlocked.includes(rewardId);
-  const xpNeeded = cost - totalXpBank;
+    const isUnlocked = unlocked.includes(rewardId);
+    const xpNeeded = cost - totalXpBank;
 
-  if (isUnlocked) {
-    Alert.alert('Already Unlocked', 'You already own this reward.');
-    return;
-  }
+    if (isUnlocked) {
+      Alert.alert('Đã sở hữu', 'Phần thưởng này bạn đã có rồi.');
+      return;
+    }
 
-  const confirmMessage =
-    xpNeeded > 0
-      ? `You need ${xpNeeded} more XP to unlock this reward.`
-      : `Do you want to spend ${cost} XP to unlock this reward?`;
+    const confirmMessage =
+      xpNeeded > 0
+        ? `Bạn cần ${xpNeeded} nữa để mở khóa.`
+        : `Bạn muốn sử dụng ${cost} để mở khóa?`;
 
-  Alert.alert(
-    'Confirm Unlock',
-    confirmMessage,
-    xpNeeded > 0
-      ? [{ text: 'OK', style: 'cancel' }]
-      : [
-          { text: 'Cancel', style: 'cancel' },
+    Alert.alert(
+      'Confirm Unlock',
+      confirmMessage,
+      xpNeeded > 0
+        ? [{ text: 'OK', style: 'cancel' }]
+        : [
+          { text: 'Không', style: 'cancel' },
           {
-            text: 'Unlock',
+            text: 'Mở khóa',
             style: 'default',
             onPress: async () => {
               const remainingXp = totalXpBank - cost;
@@ -238,224 +280,230 @@ export default function RewardStoreScreen() {
               }
 
               if (!unlocked.includes(rewardId)) {
-    const updatedRewards = [...unlocked, rewardId];
-    await AsyncStorage.setItem('unlockedRewards', JSON.stringify(updatedRewards));
-    setUnlocked(updatedRewards);
-  }
+                const updatedRewards = [...unlocked, rewardId];
+                await AsyncStorage.setItem('unlockedRewards', JSON.stringify(updatedRewards));
+                setUnlocked(updatedRewards);
+              }
 
               if (reward?.type === 'badge') setEquippedBadge(rewardId);
               if (reward?.type === 'pet') {
-  await CosmeticManager.setEquippedPet(rewardId); // actually equip it
-  setEquippedPet(rewardId); // reflect in UI
-  eventBus.emit('cosmeticUpdated'); // make sure HUD updates too
-}
+                await CosmeticManager.setEquippedPet(rewardId); // actually equip it
+                setEquippedPet(rewardId); // reflect in UI
+                eventBus.emit('cosmeticUpdated'); // make sure HUD updates too
+              }
+
+              await syncToFirestore();
 
 
-              Alert.alert('🎁 Unlocked!', `You've unlocked: ${reward?.name || rewardId}`);
+              Alert.alert('🎁 Đã mở khóa!', `Bạn đã mở khóa: ${reward?.name || rewardId}`);
             },
           },
         ]
-  );
-}, [unlocked, totalXpBank, setTotalXpBank, setUnlocked, setThemeByKey, setEquippedBadge, addHistory]);
+    );
+  }, [unlocked, totalXpBank, setTotalXpBank, setUnlocked, setThemeByKey, setEquippedBadge, addHistory]);
 
 
-  
+
 
   const handleEquipBadge = async (badgeId: string) => {
     await CosmeticManager.setEquippedBadge(badgeId);
     eventBus.emit('cosmeticUpdated');
     setEquippedBadge(badgeId);
-  
+
     await addHistory({
       date: new Date().toISOString(),
       type: 'reward',
-      description: `Equipped badge: ${badgeId}`,
+      description: `Đã trang bị huy hiệu: ${badgeId}`,
       details: { badgeId },
     });
-  
-    Alert.alert('Badge Equipped!', `${badgeId} is now active.`);
+    await syncToFirestore();
+    Alert.alert('Đã trang bị huy hiệu', `${badgeId} đã được trang bị.`);
   };
-  
+
 
   const renderItem = useCallback(({ item }) => {
-  if (item.type !== activeTab) return null;
+    if (item.type !== activeTab) return null;
 
-  const isUnlocked = unlocked.includes(item.id);
-  const isTheme = item.type === 'theme';
-  const isBadge = item.type === 'badge';
-  const isActiveTheme = item.id === themeKey;
-  const isActiveBadge = item.id === equippedBadge;
-  const isActivePet = item.id === equippedPet;
+    const isUnlocked = unlocked.includes(item.id);
+    const isTheme = item.type === 'theme';
+    const isBadge = item.type === 'badge';
+    const isActiveTheme = item.id === themeKey;
+    const isActiveBadge = item.id === equippedBadge;
+    const isActivePet = item.id === equippedPet;
 
-const rewardImage =
-  item.type === 'badge'
-    ? BadgeImageMap[item.id]
-    : item.type === 'pet'
-    ? PetImageMap[item.id]
-    : null;
+    const rewardImage =
+      item.type === 'badge'
+        ? BadgeImageMap[item.id]
+        : item.type === 'pet'
+          ? PetImageMap[item.id]
+          : null;
 
 
 
-  return (
-    <View style={[styles.card(theme), isUnlocked && styles.cardUnlocked(theme)]}>
-      {item.rarity && (
-  <Text style={{
-    fontSize: 12,
-    color: item.rarity === 'legendary' ? '#FFD700' : '#aaa',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    fontWeight: '600',
-  }}>
-    {item.rarity}
-  </Text>
+    return (
+      <View style={[styles.card(theme), isUnlocked && styles.cardUnlocked(theme)]}>
+        {item.rarity && (
+          <Text style={{
+            fontSize: 12,
+            color: item.rarity === 'legendary' ? '#FFD700' : '#aaa',
+            marginBottom: 4,
+            textTransform: 'uppercase',
+            fontWeight: '600',
+          }}>
+            {item.rarity}
+          </Text>
+        )}
+
+        <View style={{ alignItems: 'center', marginTop: 8 }}>
+          
+          <Text style={[styles.rewardName, { color: theme.text, textAlign: 'center' }]}>{item.name}</Text>
+          {item.buff && item.type === 'pet' && (
+  <AnimatedBuffText text={item.buff} isUnlocked={isUnlocked} theme={theme} />
 )}
+          {(themePreviewMap[item.id] || hudPreviewMap[item.id]) && (
+            <ThemePreviewBar colors={(themePreviewMap[item.id] || hudPreviewMap[item.id]).colors} />
+          )}
 
-      <View style={{ alignItems: 'center', marginTop: 8 }}>
-        <Text style={[styles.rewardName, { color: theme.text, textAlign: 'center' }]}>{item.name}</Text>
-        {(themePreviewMap[item.id] || hudPreviewMap[item.id]) && (
-  <ThemePreviewBar colors={(themePreviewMap[item.id] || hudPreviewMap[item.id]).colors} />
-)}
+        </View>
 
-      </View>
+        {rewardImage && (
+          <Image
+            source={rewardImage}
+            style={{ width: 64, height: 64, alignSelf: 'center', marginBottom: 8 }}
+            resizeMode="contain"
+          />
+        )}
 
-      {rewardImage && (
-        <Image
-          source={rewardImage}
-          style={{ width: 64, height: 64, alignSelf: 'center', marginBottom: 8 }}
-          resizeMode="contain"
-        />
-      )}
+        {!isUnlocked && item.id !== 'badge_glitch' && (
+          <Text style={[styles.cost, { color: theme.text, textAlign: 'center' }]}>
+           Cần {item.cost} XP
+          </Text>
+        )}
 
-      {!isUnlocked && item.id !== 'badge_glitch' && (
-  <Text style={[styles.cost, { color: theme.text, textAlign: 'center' }]}>
-    🧬 Requires {item.cost} XP
-  </Text>
-)}
-
-{item.id === 'badge_glitch' && (
-  <Text style={[styles.cost, { color: theme.text, textAlign: 'center' }]}>
-    🔒 Unlock via 7-day Streak
-  </Text>
-)}
+        {item.id === 'badge_glitch' && (
+          <Text style={[styles.cost, { color: theme.text, textAlign: 'center' }]}>
+            🔒 Mở khóa sau 7 ngày đăng nhập
+          </Text>
+        )}
 
 
 
 
         {!isUnlocked && item.id !== 'badge_glitch' && (
           <View style={{ alignItems: 'center' }}>
-<TouchableOpacity onPress={() => handleUnlock(item.id, item.cost)}>
-  <View style={[
-    styles.cyberButton(theme),
-    totalXpBank < item.cost && styles.cyberButtonDisabled
-  ]}>
-    <Text style={[
-  styles.cyberButtonText,
-  { color: theme.text },
-  totalXpBank < item.cost && styles.cyberButtonTextDisabled
-]}>
-  🔓 Unlock
-</Text>
-  </View>
-</TouchableOpacity>
+            <TouchableOpacity onPress={() => handleUnlock(item.id, item.cost)}>
+              <View style={[
+                styles.cyberButton(theme),
+                totalXpBank < item.cost && styles.cyberButtonDisabled
+              ]}>
+                <Text style={[
+                  styles.cyberButtonText,
+                  { color: theme.text },
+                  totalXpBank < item.cost && styles.cyberButtonTextDisabled
+                ]}>
+                  🔓 Mở khóa
+                </Text>
+              </View>
+            </TouchableOpacity>
 
-</View>
-
-        )}
-
-{isUnlocked && isTheme && (
-  <View style={{ marginTop: !item.id.startsWith('badge_glitch') && !item.cost ? 0 : 8 }}>
-    <EquipButton
-      onPress={() => handleEquipTheme(item.id)}
-      isEquipped={isActiveTheme}
-      label="Equip Theme"
-    />
-  </View>
-)}
-
-        <View style={{ marginTop: !item.id.startsWith('badge_glitch') && !item.cost ? 0 : 8 }}>
-        {isUnlocked && isBadge && (
-          <EquipButton
-  onPress={() => handleEquipBadge(item.id)}
-  isEquipped={isActiveBadge}
-  label="Equip Badge"
-/>
+          </View>
 
         )}
-       </View>
+
+        {isUnlocked && isTheme && (
+          <View style={{ marginTop: !item.id.startsWith('badge_glitch') && !item.cost ? 0 : 8 }}>
+            <EquipButton
+              onPress={() => handleEquipTheme(item.id)}
+              isEquipped={isActiveTheme}
+              label="Trang bị Giao Diện"
+            />
+          </View>
+        )}
 
         <View style={{ marginTop: !item.id.startsWith('badge_glitch') && !item.cost ? 0 : 8 }}>
-{isUnlocked && item.type === 'pet' && (
-  <EquipButton
-    onPress={() => handleEquipPet(item.id)}
-    isEquipped={isActivePet}
-    label="Equip Pet"
-  />
-)}
+          {isUnlocked && isBadge && (
+            <EquipButton
+              onPress={() => handleEquipBadge(item.id)}
+              isEquipped={isActiveBadge}
+              label="Trang bị Huy Hiệu"
+            />
+
+          )}
+        </View>
+
+        <View style={{ marginTop: !item.id.startsWith('badge_glitch') && !item.cost ? 0 : 8 }}>
+          {isUnlocked && item.type === 'pet' && (
+            <EquipButton
+              onPress={() => handleEquipPet(item.id)}
+              isEquipped={isActivePet}
+              label="Trang bị Thú Cưng"
+            />
+          )}
         </View>
 
 
 
       </View>
-  );
-}, [activeTab, unlocked, equippedBadge, equippedHud, equippedPet, themeKey, theme]);
+    );
+  }, [activeTab, unlocked, equippedBadge, equippedHud, equippedPet, themeKey, theme]);
 
   const filteredRewards = rewards.filter((r) => r.type === activeTab);
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={{ alignItems: 'center', marginBottom: 20 }}>
-      <Text style={[styles.title, { color: theme.accent }]}>Reward Store</Text>
-      <Text style={styles.xpHighlight}>
-  🧬 XP Bank: <Text style={{ color: theme.accent }}>{totalXpBank}</Text>
-</Text>
+        <Text style={[styles.title, { color: theme.accent }]}>Cửa hàng</Text>
+        <Text style={styles.xpHighlight}>
+          Tổng XP: <Text style={{ color: theme.accent }}>{totalXpBank}</Text>
+        </Text>
 
       </View>
 
       <View style={styles.tabBar}>
-  {['theme', 'badge', 'pet'].map((tab) => (
-    <TouchableOpacity
-      key={tab}
-      style={[
-  ,
-  activeTab === tab && styles.activeTab,
-]}
+        {['theme', 'badge', 'pet'].map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[
+              ,
+              activeTab === tab && styles.activeTab,
+            ]}
 
-      onPress={() => setActiveTab(tab as any)}
-    >
-      <Text style={styles.tabText}>
-        {tab === 'theme' ? '🎨 Themes' : tab === 'badge' ? '🏅 Badges' : '🐾 Pets'}
-      </Text>
-    </TouchableOpacity>
-  ))}
-</View>
+            onPress={() => setActiveTab(tab as any)}
+          >
+            <Text style={styles.tabText}>
+              {tab === 'theme' ? '🎨 Giao Diện' : tab === 'badge' ? '🏅 Huy Hiệu' : '🐾 Thú cưng'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-{filteredRewards.length === 0 && (
-  <Text style={{ textAlign: 'center', color: '#777', marginTop: 40 }}>
-    🚫 No rewards in this category yet.
-  </Text>
-)}
+      {filteredRewards.length === 0 && (
+        <Text style={{ textAlign: 'center', color: '#777', marginTop: 40 }}>
+          Hiện chưa có phần thưởng nào trong mục này.
+        </Text>
+      )}
 
-<FlatList
-  data={filteredRewards}
-  keyExtractor={(item) => item.id}
-  renderItem={renderItem}
-  extraData={{ activeTab, unlocked, equippedBadge, equippedHud, equippedPet, themeKey }} // <-- added `equippedPet`
-  contentContainerStyle={{ paddingBottom: 40 }}
-  ListFooterComponent={activeTab === 'theme' ? (
-    <TouchableOpacity onPress={() => navigation.navigate('ThemeGalleryScreen')}>
-      <Text style={{ color: theme.accent, textAlign: 'center', margin: 14 }}>
-        Browse Full Theme Gallery
-      </Text>
-    </TouchableOpacity>
-  ) : null}
-/>
+      <FlatList
+        data={filteredRewards}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        extraData={{ activeTab, unlocked, equippedBadge, equippedHud, equippedPet, themeKey }} // <-- added `equippedPet`
+        contentContainerStyle={{ paddingBottom: 40 }}
+        ListFooterComponent={activeTab === 'theme' ? (
+          <TouchableOpacity onPress={() => navigation.navigate('ThemeGalleryScreen')}>
+            <Text style={{ color: theme.accent, textAlign: 'center', margin: 14 }}>
+              Xem giao diện
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+      />
 
     </View>
-    
+
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 60, paddingHorizontal: 20,},
+  container: { flex: 1, paddingTop: 60, paddingHorizontal: 20, },
   title: { fontSize: 24, fontWeight: 'bold', marginBottom: 10, },
   xp: { fontSize: 16, marginBottom: 20 },
   card: (theme) => ({
@@ -467,14 +515,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   }),
   cardUnlocked: (theme) => ({
-  borderColor: theme.accent,
-  borderWidth: 1,
-  paddingBottom: 12,
-  shadowColor: theme.accent,
-  shadowOffset: { width: 0, height: 0 },
-  shadowOpacity: 0.3,
-  shadowRadius: 8,
-}),
+    borderColor: theme.accent,
+    borderWidth: 1,
+    paddingBottom: 12,
+    shadowColor: theme.accent,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  }),
 
 
   rewardName: { fontSize: 16, marginBottom: 6 },
@@ -482,92 +530,92 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: 14, fontWeight: 'bold' },
   tabBar: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 },
 
-activeTab: { backgroundColor: '#00f9ff22' },
-tabText: { color: 'white', fontWeight: 'bold' },
 
-cyberButton: (theme) => ({
-  backgroundColor: `${theme.accent}33`,
-  paddingVertical: 8,
-  paddingHorizontal: 16,
-  borderRadius: 8,
-  borderWidth: 1,
-  borderColor: theme.accent,
-  marginTop: 10,
-  shadowColor: theme.accent,
-  shadowOpacity: 0.7,
-  shadowRadius: 6,
-}),
-cyberButtonText: { color: '#00f9ff', fontWeight: 'bold', textAlign: 'center' },
+  tabText: { color: 'white', fontWeight: 'bold' },
 
-cyberButtonEquipped: {
-  backgroundColor: '#0f0f0f',
-  paddingVertical: 8,
-  paddingHorizontal: 16,
-  borderRadius: 8,
-  borderWidth: 1,
-  borderColor: '#4caf50',
-  marginTop: 6,
-  shadowColor: '#4caf50',
-  shadowOpacity: 0.7,
-  shadowRadius: 6,
-},
-cyberButtonTextEquipped: { color: '#4caf50', fontWeight: 'bold', textAlign: 'center' },
-cyberButtonDisabled: {
-  opacity: 0.4,
-},
+  cyberButton: (theme) => ({
+    backgroundColor: `${theme.accent}33`,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.accent,
+    marginTop: 10,
+    shadowColor: theme.accent,
+    shadowOpacity: 0.7,
+    shadowRadius: 6,
+  }),
+  cyberButtonText: { color: '#00f9ff', fontWeight: 'bold', textAlign: 'center' },
 
-cyberButtonTextDisabled: {
-  color: '#999',
-},
+  cyberButtonEquipped: {
+    backgroundColor: '#0f0f0f',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#4caf50',
+    marginTop: 6,
+    shadowColor: '#4caf50',
+    shadowOpacity: 0.7,
+    shadowRadius: 6,
+  },
+  cyberButtonTextEquipped: { color: '#4caf50', fontWeight: 'bold', textAlign: 'center' },
+  cyberButtonDisabled: {
+    opacity: 0.4,
+  },
 
-equipButton: {
-  backgroundColor: '#00f9ff22',
-  paddingVertical: 8,
-  paddingHorizontal: 18,
-  borderRadius: 10,
-  borderWidth: 1,
-  borderColor: '#00f9ff',
-  shadowColor: '#00f9ff',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.7,
-  shadowRadius: 6,
-  marginTop: 8,
-  alignSelf: 'center',
-},
+  cyberButtonTextDisabled: {
+    color: '#999',
+  },
 
-equipButtonText: (theme) => ({
-  color: theme.text,
-  fontSize: 14,
-  textAlign: 'center',
-}),
+  equipButton: {
+    backgroundColor: '#00f9ff22',
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#00f9ff',
+    shadowColor: '#00f9ff',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.7,
+    shadowRadius: 6,
+    marginTop: 8,
+    alignSelf: 'center',
+  },
+
+  equipButtonText: (theme) => ({
+    color: theme.text,
+    fontSize: 14,
+    textAlign: 'center',
+  }),
 
 
-equippedButton: {
-  backgroundColor: '#0f0f0f',
-  paddingVertical: 8,
-  paddingHorizontal: 18,
-  borderRadius: 10,
-  shadowColor: '#4caf50',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.6,
-  shadowRadius: 6,
-  marginTop: 8,
-  alignSelf: 'center',
-},
+  equippedButton: {
+    backgroundColor: '#0f0f0f',
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    shadowColor: '#4caf50',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
+    marginTop: 8,
+    alignSelf: 'center',
+  },
 
-equippedButtonText: {
-  color: '#4caf50',
-  fontSize: 14,
-  textAlign: 'center',
-},
-xpHighlight: {
-  fontSize: 16,
-  fontWeight: '600',
-  color: '#aaa',
-  marginBottom: 16,
-  textAlign: 'center',
-  letterSpacing: 0.5,
-},
+  equippedButtonText: {
+    color: '#4caf50',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  xpHighlight: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#aaa',
+    marginBottom: 16,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
 
 
 });

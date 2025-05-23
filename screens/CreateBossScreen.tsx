@@ -17,6 +17,7 @@ import { RootStackParamList } from '../utils/navigation';
 import { useTheme } from '../contexts/ThemeContext';
 import CrossPlatformPicker from '../contexts/CrossPlatformPicker';
 import AssetManager from '../utils/AssetManager';
+import { syncToFirestore } from '../utils/syncToFirestore';
 
 type CreateBossScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'CreateBossScreen'>;
@@ -47,7 +48,7 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
 
   const handleCreate = async () => {
     if (title.trim() === '') {
-      Alert.alert('Missing title', 'Please enter a title for your boss quest.');
+      Alert.alert('Thiếu tiêu đề', 'Vui lòng đặt tên cho Boss của bạn.');
       return;
     }
   
@@ -56,14 +57,14 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
   
     // ✅ LIMIT CHECK HERE
     if (bosses.length >= 8) {
-      Alert.alert('⚠️ Limit Reached', 'You can only have up to 8 bosses at a time.');
+      Alert.alert('⚠️ Quá giới hạn', 'Bạn chỉ được tạo tối đa 8 boss cùng lúc.');
       return;
     }
   
     const newBoss: Boss = {
       id: uuid.v4().toString(),
       title: title.trim(),
-      description: description.trim() || 'Defeat me!',
+      description: description.trim() || 'Đánh bại tôi nếu bạn đủ giỏi!',
       progress: 0,
       isDefeated: false,
       createdAt: Date.now(),
@@ -75,19 +76,19 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
   
     bosses.push(newBoss);
     await AsyncStorage.setItem('bosses', JSON.stringify(bosses));
-  
-    Alert.alert('Boss Created!', `You've launched "${newBoss.title}".`);
+    await syncToFirestore();
+    Alert.alert('🎯 Đã tạo boss!', `Bạn vừa khởi động "${newBoss.title}".`);
     navigation.navigate('BossQuestScreen', { refreshed: true });
   };
   
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.header}>New Boss Quest</Text>
+      <Text style={styles.header}>Tạo Nhiệm Vụ Boss Mới</Text>
 
       <TextInput
         style={styles.input}
-        placeholder="Boss Title"
+        placeholder="Tên của Boss"
         placeholderTextColor="#777"
         value={title}
         onChangeText={setTitle}
@@ -95,7 +96,7 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
 
       <TextInput
         style={[styles.input, styles.textArea]}
-        placeholder="Description (optional)"
+        placeholder="Boss nào mà không có lore?"
         placeholderTextColor="#777"
         value={description}
         onChangeText={setDescription}
@@ -103,13 +104,13 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
         numberOfLines={4}
       />
 
-      <Text style={styles.label}>Select Boss Tier:</Text>
+      <Text style={styles.label}>Chọn cấp độ Boss:</Text>
       <CrossPlatformPicker
   selectedValue={selectedTier}
   options={[
-  { label: 'Mini Boss', value: 'mini', icon: AssetManager.BossIcons.mini },
-  { label: 'Elite Boss', value: 'elite', icon: AssetManager.BossIcons.elite },
-  { label: 'Mega Boss', value: 'mega', icon: AssetManager.BossIcons.mega },
+  { label: 'Boss Nhỏ', value: 'mini', icon: AssetManager.BossIcons.mini },
+  { label: 'Boss Tinh Anh', value: 'elite', icon: AssetManager.BossIcons.elite },
+  { label: 'Boss Siêu Cấp', value: 'mega', icon: AssetManager.BossIcons.mega },
 ]}
 
   onValueChange={(value) => setSelectedTier(value as 'mini' | 'elite' | 'mega')}
@@ -117,7 +118,7 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
   style={{ marginBottom: 16 }}
 />
 
-      <Text style={styles.label}>Unlocks After:</Text>
+      <Text style={styles.label}>Mở khóa sau khi hoàn thành:</Text>
       {bosses.map((b) => (
         <TouchableOpacity
           key={b.id}
@@ -128,13 +129,13 @@ export default function CreateBossScreen({ navigation }: CreateBossScreenProps) 
           onPress={() => handleToggleUnlock(b.id)}
         >
           <Text style={{ color: theme.text }}>
-            {`${selectedUnlockIds.includes(b.id) ? '✅' : '⬜️'} ${b.title ?? 'Untitled'}`}
+            {`${selectedUnlockIds.includes(b.id) ? '✅' : '⬜️'} ${b.title ?? 'Chưa đặt tên'}`}
           </Text>
         </TouchableOpacity>
       ))}
 
       <TouchableOpacity style={styles.button} onPress={handleCreate}>
-        <Text style={styles.buttonText}>Launch Quest</Text>
+        <Text style={styles.buttonText}>Bắt đầu nhiệm vụ</Text>
       </TouchableOpacity>
     </ScrollView>
   );

@@ -10,6 +10,8 @@ import { Image } from 'react-native';
 import { PlayerClass } from '../utils/type'; // if it's external
 import { ClassAvatarMap } from '../utils/AssetManager';
 
+const USER_MONTHLY_PROGRESS_KEY = 'userMonthlyProgress';
+
 const podiumColors = {
   1: '#FFD700', // Vàng
   2: '#C0C0C0', // Bạc
@@ -53,9 +55,11 @@ const safeClass = validClasses.includes(storedClass as PlayerClass)
   ? (storedClass as PlayerClass)
   : 'ghostrunner'; // fallback if corrupted or missing
 
+const storedName = await AsyncStorage.getItem('playerName');
+
 const user = {
   id: 'me',
-  name: 'Max',
+  name: storedName || 'N/A',
   playerClass: safeClass,
   xp: progress.monthlyXp,
   tasksCompleted: progress.tasksCompleted,
@@ -94,7 +98,7 @@ const user = { id: 'me', name: 'Max', xp, ...progress };
           combined.sort((a, b) => b.xp - a.xp);
 
           if (combined[0].id === 'me') {
-            Alert.alert('🎉 Bạn đứng TOP 1!', 'Vinh danh đỉnh cao tháng này!');
+            Alert.alert('🔥 Đỉnh của chóp!', 'Bạn là người dẫn đầu tháng này! Quá ghê~');
             setShowGlow(true);
             setTimeout(() => setShowGlow(false), 3000);
           }
@@ -145,7 +149,7 @@ const user = { id: 'me', name: 'Max', xp, ...progress };
       <View style={{ flex: 1 }}>
         <Text style={styles.name}>{item.name}</Text>
         <Text style={styles.stats}>
-          🧬 {item.xp} XP | ✅ {item.tasksCompleted} tasks | 👑 {item.bossesDefeated} bosses
+          🧬 {item.xp} XP | ✅ {item.tasksCompleted} nhiệm vụ | 👑 {item.bossesDefeated} boss đã hạ
         </Text>
       </View>
     </View>
@@ -155,7 +159,7 @@ const user = { id: 'me', name: 'Max', xp, ...progress };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>🏆 Bảng Xếp Hạng Tháng</Text>
+      <Text style={styles.header}>Bảng Xếp Hạng Tháng</Text>
 
       <FlatList
         data={players}
